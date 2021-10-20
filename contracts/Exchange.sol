@@ -575,7 +575,7 @@ contract Exchange is IExchange, Owned {
     );
     uint256 netAssetQuantityInAssetUnits = AssetUnitConversions
       .pipsToAssetUnits(netAssetQuantityInPips, asset.decimals);
-    uint64 newExchangeBalanceInPips = _balancesInPips[withdrawalf
+    uint64 newExchangeBalanceInPips = _balancesInPips[withdrawal
       .walletAddress][asset.assetAddress]
       .sub(withdrawal.quantityInPips);
     uint256 newExchangeBalanceInAssetUnits = AssetUnitConversions
