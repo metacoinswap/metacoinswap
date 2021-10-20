@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
-pragma solidity ^0.8.8;
+pragma solidity ^0.6.8;
 pragma experimental ABIEncoderV2;
 
 import { Address } from './Address.sol';
 
-import { IERC20, Structs } from './Interfaces.sol';
+import { IBEP20, Structs } from './Interfaces.sol';
 
 
 /**
@@ -21,13 +21,13 @@ library AssetRegistry {
 
   function registerToken(
     Storage storage self,
-    IERC20 tokenAddress,
+    IBEP20 tokenAddress,
     string memory symbol,
     uint8 decimals
   ) internal {
     require(decimals <= 32, 'Token cannot have more than 32 decimals');
     require(
-      tokenAddress != IERC20(0x0) && Address.isContract(address(tokenAddress)),
+      tokenAddress != IBEP20(address(0x0)) && Address.isContract(address(tokenAddress)),
       'Invalid token address'
     );
     // The string type does not have a length property so cast to bytes to check for empty string
@@ -49,7 +49,7 @@ library AssetRegistry {
 
   function confirmTokenRegistration(
     Storage storage self,
-    IERC20 tokenAddress,
+    IBEP20 tokenAddress,
     string memory symbol,
     uint8 decimals
   ) internal {
@@ -67,7 +67,7 @@ library AssetRegistry {
 
   function addTokenSymbol(
     Storage storage self,
-    IERC20 tokenAddress,
+    IBEP20 tokenAddress,
     string memory symbol
   ) internal {
     Structs.Asset memory asset = self.assetsByAddress[address(tokenAddress)];
@@ -75,7 +75,7 @@ library AssetRegistry {
       asset.exists && asset.isConfirmed,
       'Registration of token not finalized'
     );
-    require(!isStringEqual(symbol, 'BSC'), 'BSC symbol reserved for Binance Smart Chain');
+    require(!isStringEqual(symbol, 'BNB'), 'BNB symbol reserved');
 
     // This will prevent swapping assets for previously existing orders
     uint64 msInOneSecond = 1000;
@@ -87,7 +87,7 @@ library AssetRegistry {
   /**
    * @dev Resolves an asset address into corresponding Asset struct
    *
-   * @param assetAddress BSC address of asset
+   * @param assetAddress BNB address of asset
    */
   function loadAssetByAddress(Storage storage self, address assetAddress)
     internal
@@ -95,7 +95,7 @@ library AssetRegistry {
     returns (Structs.Asset memory)
   {
     if (assetAddress == address(0x0)) {
-      return getBscAsset();
+      return getBnbAsset();
     }
 
     Structs.Asset memory asset = self.assetsByAddress[assetAddress];
@@ -120,8 +120,8 @@ library AssetRegistry {
     string memory symbol,
     uint64 timestampInMs
   ) internal view returns (Structs.Asset memory) {
-    if (isStringEqual('BSC', symbol)) {
-      return getBscAsset();
+    if (isStringEqual('BNB', symbol)) {
+      return getBnbAsset();
     }
 
     Structs.Asset memory asset;
@@ -143,10 +143,10 @@ library AssetRegistry {
   }
 
   /**
-   * @dev BSC is modeled as an always-confirmed Asset struct for programmatic consistency
+   * @dev BNB is modeled as an always-confirmed Asset struct for programmatic consistency
    */
-  function getBscAsset() private pure returns (Structs.Asset memory) {
-    return Structs.Asset(true, address(0x0), 'BSC', 18, true, 0);
+  function getBnbAsset() private pure returns (Structs.Asset memory) {
+    return Structs.Asset(true, address(0x0), 'BNB', 18, true, 0);
   }
 
   // See https://solidity.readthedocs.io/en/latest/types.html#bytes-and-strings-as-arrays

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
-pragma solidity ^0.8.8;
+pragma solidity ^0.6.8;
 pragma experimental ABIEncoderV2;
 
 import { ECDSA } from './ECDSA.sol';

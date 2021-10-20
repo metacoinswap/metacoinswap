@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
-pragma solidity ^0.8.8;
+pragma solidity ^0.6.8;
 pragma experimental ABIEncoderV2;
 
 
@@ -160,12 +160,12 @@ contract Structs {
 
 
 /**
- * @notice Interface of the ERC20 standard as defined in the EIP, but with no return values for
- * transfer and transferFrom. By asserting expected balance changes when calling these two methods
- * we can safely ignore their return values. This allows support of non-compliant tokens that do not
- * return a boolean. See https://github.com/ethereum/solidity/issues/4116
+ * @notice Interface of the BEP-20, but with no return values for transfer and transferFrom.
+ * By asserting expected balance changes when calling these two methods we can safely ignore 
+ * their return values. This allows support of non-compliant tokens that do not return a boolean. 
+ * See https://github.com/ethereum/solidity/issues/4116
  */
-interface IERC20 {
+interface IBEP20 {
   /**
    * @notice Returns the amount of tokens in existence.
    */
@@ -252,7 +252,7 @@ interface IERC20 {
  */
 interface ICustodian {
   /**
-   * @notice BSC can only be sent by the Exchange
+   * @notice BNB can only be sent by the Exchange
    */
   receive() external payable;
 
@@ -262,7 +262,7 @@ interface ICustodian {
    * @dev No balance checking performed
    *
    * @param wallet The wallet to which assets will be returned
-   * @param asset The address of the asset to withdraw (BSC or ERC-20 contract)
+   * @param asset The address of the asset to withdraw (BNB or BEP20 contract)
    * @param quantityInAssetUnits The quantity in asset units to withdraw
    */
   function withdraw(

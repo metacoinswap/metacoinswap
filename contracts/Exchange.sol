@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
-pragma solidity ^0.8.8;
+pragma solidity ^0.6.8;
 pragma experimental ABIEncoderV2;
 
 import { Address } from './libraries/Address.sol';
@@ -18,7 +18,7 @@ import { Signatures } from './libraries/Signatures.sol';
 import {
   Enums,
   ICustodian,
-  IERC20,
+  IBEP20,
   IExchange,
   Structs
 } from './libraries/Interfaces.sol';
@@ -28,7 +28,7 @@ import { UUID } from './libraries/UUID.sol';
 /**
  * @notice The Exchange contract. Implements all deposit, trade, and withdrawal logic and associated balance tracking
  *
- * @dev The term `asset` refers collectively to ETH and ERC-20 tokens, the term `token` refers only to the latter
+ * @dev The term `asset` refers collectively to BNB and BEP-20 tokens, the term `token` refers only to the latter
  * @dev Events with indexed string parameters (Deposited and TradeExecuted) only log the hash values for those
  * parameters, from which the original raw string values cannot be retrieved. For convenience these events contain
  * the un-indexed string parameter values in addition to the indexed values
@@ -45,7 +45,7 @@ contract Exchange is IExchange, Owned {
    */
   event ChainPropagationPeriodChanged(uint256 previousValue, uint256 newValue);
   /**
-   * @notice Emitted when a user deposits ETH with `depositEther` or a token with `depositAsset` or `depositAssetBySymbol`
+   * @notice Emitted when a user deposits BNB with `depositBNB` or a token with `depositAsset` or `depositAssetBySymbol`
    */
   event Deposited(
     uint64 index,
@@ -80,7 +80,7 @@ contract Exchange is IExchange, Owned {
    * @notice Emitted when an admin initiates the token registration process with `registerToken`
    */
   event TokenRegistered(
-    IERC20 indexed assetAddress,
+    IBEP20 indexed assetAddress,
     string assetSymbol,
     uint8 decimals
   );
@@ -89,7 +89,7 @@ contract Exchange is IExchange, Owned {
    * which it can be deposited, traded, or withdrawn
    */
   event TokenRegistrationConfirmed(
-    IERC20 indexed assetAddress,
+    IBEP20 indexed assetAddress,
     string assetSymbol,
     uint8 decimals
   );
@@ -97,7 +97,7 @@ contract Exchange is IExchange, Owned {
    * @notice Emitted when an admin adds a symbol to a previously registered and confirmed token
    * via `addTokenSymbol`
    */
-  event TokenSymbolAdded(IERC20 indexed assetAddress, string assetSymbol);
+  event TokenSymbolAdded(IBEP20 indexed assetAddress, string assetSymbol);
   /**
    * @notice Emitted when the Dispatcher Wallet submits a trade for execution with `executeTrade`
    */
@@ -181,7 +181,7 @@ contract Exchange is IExchange, Owned {
 
   // Constant values //
 
-  uint256 constant _maxChainPropagationPeriod = (7 * 24 * 60 * 60) / 15; // 1 week at 15s/block
+  uint256 constant _maxChainPropagationPeriod = (7 * 24 * 60 * 60) / 3; // 1 week at 3s/block
   uint64 constant _maxTradeFeeBasisPoints = 20 * 100; // 20%;
   uint64 constant _maxWithdrawalFeeBasisPoints = 20 * 100; // 20%;
 
@@ -377,32 +377,32 @@ contract Exchange is IExchange, Owned {
   // Depositing //
 
   /**
-   * @notice Deposit BSC
+   * @notice Deposit BNB
    */
-  function depositEther() external payable {
+  function depositBNB() external payable {
     deposit(msg.sender, address(0x0), msg.value);
   }
 
   /**
-   * @notice Deposit `IERC20` compliant tokens
+   * @notice Deposit `IBEP20` compliant tokens
    *
    * @param tokenAddress The token contract address
    * @param quantityInAssetUnits The quantity to deposit. The sending wallet must first call the `approve` method on
    * the token contract for at least this quantity first
    */
   function depositTokenByAddress(
-    IERC20 tokenAddress,
+    IBEP20 tokenAddress,
     uint256 quantityInAssetUnits
   ) external {
     require(
       address(tokenAddress) != address(0x0),
-      'Use depositEther to deposit Ether'
+      'Use depositBNB to deposit BNB'
     );
     deposit(msg.sender, address(tokenAddress), quantityInAssetUnits);
   }
 
   /**
-   * @notice Deposit `IERC20` compliant tokens
+   * @notice Deposit `IBEP20` compliant tokens
    *
    * @param assetSymbol The case-sensitive symbol string for the token
    * @param quantityInAssetUnits The quantity to deposit. The sending wallet must first call the `approve` method on
@@ -412,21 +412,21 @@ contract Exchange is IExchange, Owned {
     string calldata assetSymbol,
     uint256 quantityInAssetUnits
   ) external {
-    IERC20 tokenAddress = IERC20(
+    IBEP20 tokenAddress = IBEP20(
       _assetRegistry
         .loadAssetBySymbol(assetSymbol, getCurrentTimestampInMs())
         .assetAddress
     );
     require(
       address(tokenAddress) != address(0x0),
-      'Use depositEther to deposit ETH'
+      'Use depositBNB to deposit BNB'
     );
 
     deposit(msg.sender, address(tokenAddress), quantityInAssetUnits);
   }
 
   function deposit(
-    address payable wallet,
+    address wallet,
     address assetAddress,
     uint256 quantityInAssetUnits
   ) private {
@@ -445,19 +445,19 @@ contract Exchange is IExchange, Owned {
     require(quantityInPips > 0, 'Quantity is too low');
 
     // Convert from pips back into asset units to remove any fractional amount that is too small
-    // to express in pips. If the asset is ETH, this leftover fractional amount accumulates as dust
+    // to express in pips. If the asset is BNB, this leftover fractional amount accumulates as dust
     // in the `Exchange` contract. If the asset is a token the `Exchange` will call `transferFrom`
     // without this fractional amount and there will be no dust
     uint256 quantityInAssetUnitsWithoutFractionalPips = AssetUnitConversions
       .pipsToAssetUnits(quantityInPips, asset.decimals);
 
-    // If the asset is ETH then the funds were already assigned to this contract via msg.value. If
+    // If the asset is BNB then the funds were already assigned to this contract via msg.value. If
     // the asset is a token, additionally call the transferFrom function on the token contract for
     // the pre-approved asset quantity
     if (assetAddress != address(0x0)) {
       AssetTransfers.transferFrom(
         wallet,
-        IERC20(assetAddress),
+        IBEP20(assetAddress),
         quantityInAssetUnitsWithoutFractionalPips
       );
     }
@@ -575,7 +575,7 @@ contract Exchange is IExchange, Owned {
     );
     uint256 netAssetQuantityInAssetUnits = AssetUnitConversions
       .pipsToAssetUnits(netAssetQuantityInPips, asset.decimals);
-    uint64 newExchangeBalanceInPips = _balancesInPips[withdrawal
+    uint64 newExchangeBalanceInPips = _balancesInPips[withdrawalf
       .walletAddress][asset.assetAddress]
       .sub(withdrawal.quantityInPips);
     uint256 newExchangeBalanceInAssetUnits = AssetUnitConversions
@@ -645,7 +645,7 @@ contract Exchange is IExchange, Owned {
     require(balanceInAssetUnits > 0, 'No balance for asset');
     _balancesInPips[msg.sender][assetAddress] = 0;
     ICustodian(_custodian).withdraw(
-      msg.sender,
+      payable(msg.sender),
       assetAddress,
       balanceInAssetUnits
     );
@@ -1041,15 +1041,15 @@ contract Exchange is IExchange, Owned {
   // Asset registry //
 
   /**
-   * @notice Initiate registration process for a token asset. Only `IERC20` compliant tokens can be
-   * added - ETH is hardcoded in the registry
+   * @notice Initiate registration process for a token asset. Only `IBEP20` compliant tokens can be
+   * added - BNB is hardcoded in the registry
    *
-   * @param tokenAddress The address of the `IERC20` compliant token contract to add
+   * @param tokenAddress The address of the `IBEP20` compliant token contract to add
    * @param symbol The symbol identifying the token asset
    * @param decimals The decimal precision of the token
    */
   function registerToken(
-    IERC20 tokenAddress,
+    IBEP20 tokenAddress,
     string calldata symbol,
     uint8 decimals
   ) external onlyAdmin {
@@ -1061,12 +1061,12 @@ contract Exchange is IExchange, Owned {
    * @notice Finalize registration process for a token asset. All parameters must exactly match a previous
    * call to `registerToken`
    *
-   * @param tokenAddress The address of the `IERC20` compliant token contract to add
+   * @param tokenAddress The address of the `IBEP20` compliant token contract to add
    * @param symbol The symbol identifying the token asset
    * @param decimals The decimal precision of the token
    */
   function confirmTokenRegistration(
-    IERC20 tokenAddress,
+    IBEP20 tokenAddress,
     string calldata symbol,
     uint8 decimals
   ) external onlyAdmin {
@@ -1077,10 +1077,10 @@ contract Exchange is IExchange, Owned {
   /**
    * @notice Add a symbol to a token that has already been registered and confirmed
    *
-   * @param tokenAddress The address of the `IERC20` compliant token contract the symbol will identify
+   * @param tokenAddress The address of the `IBEP20` compliant token contract the symbol will identify
    * @param symbol The symbol identifying the token asset
    */
-  function addTokenSymbol(IERC20 tokenAddress, string calldata symbol)
+  function addTokenSymbol(IBEP20 tokenAddress, string calldata symbol)
     external
     onlyAdmin
   {

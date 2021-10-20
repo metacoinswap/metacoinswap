@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
-pragma solidity ^0.8.8;
+pragma solidity ^0.6.8;
 pragma experimental ABIEncoderV2;
 
 import {
   SafeMath as SafeMath256
 } from './SafeMath.sol';
 
-import { IERC20 } from './Interfaces.sol';
+import { IBEP20 } from './Interfaces.sol';
 
 
 /**
@@ -20,11 +20,11 @@ library AssetTransfers {
   /**
    * @dev Transfers tokens from a wallet into a contract during deposits. `wallet` must already
    * have called `approve` on the token contract for at least `tokenQuantity`. Note this only
-   * applies to tokens since BSC is sent in the deposit transaction via `msg.value`
+   * applies to tokens since BNB is sent in the deposit transaction via `msg.value`
    */
   function transferFrom(
     address wallet,
-    IERC20 tokenAddress,
+    IBEP20 tokenAddress,
     uint256 quantityInAssetUnits
   ) internal {
     uint256 balanceBefore = tokenAddress.balanceOf(address(this));
@@ -40,7 +40,7 @@ library AssetTransfers {
   }
 
   /**
-   * @dev Transfers BSC or token assets from a contract to 1) another contract, when `Exchange`
+   * @dev Transfers BNB or token assets from a contract to 1) another contract, when `Exchange`
    * forwards funds to `Custodian` during deposit or 2) a wallet, when withdrawing
    */
   function transferTo(
@@ -51,15 +51,15 @@ library AssetTransfers {
     if (asset == address(0x0)) {
       require(
         walletOrContract.send(quantityInAssetUnits),
-        'BSC transfer failed'
+        'BNB transfer failed'
       );
     } else {
-      uint256 balanceBefore = IERC20(asset).balanceOf(walletOrContract);
+      uint256 balanceBefore = IBEP20(asset).balanceOf(walletOrContract);
 
       // Because we check for the expected balance change we can safely ignore the return value of transfer
-      IERC20(asset).transfer(walletOrContract, quantityInAssetUnits);
+      IBEP20(asset).transfer(walletOrContract, quantityInAssetUnits);
 
-      uint256 balanceAfter = IERC20(asset).balanceOf(walletOrContract);
+      uint256 balanceAfter = IBEP20(asset).balanceOf(walletOrContract);
       require(
         balanceAfter.sub(balanceBefore) == quantityInAssetUnits,
         'Token contract returned transfer success without expected balance change'

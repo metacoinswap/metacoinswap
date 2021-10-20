@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
-pragma solidity ^0.8.8;
+pragma solidity ^0.6.8;
 pragma experimental ABIEncoderV2;
 
 import { Address } from './libraries/Address.sol';
@@ -41,7 +41,7 @@ contract Custodian is ICustodian, Owned {
   }
 
   /**
-   * @notice BSC can only be sent by the Exchange
+   * @notice BNB can only be sent by the Exchange
    */
   receive() external override payable onlyExchange {}
 
@@ -51,7 +51,7 @@ contract Custodian is ICustodian, Owned {
    * @dev No balance checking performed
    *
    * @param wallet The wallet to which assets will be returned
-   * @param asset The address of the asset to withdraw (BSC or ERC-20 contract)
+   * @param asset The address of the asset to withdraw (BNB or BEP20 contract)
    * @param quantityInAssetUnits The quantity in asset units to withdraw
    */
   function withdraw(
