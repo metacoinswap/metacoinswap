@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
-pragma solidity ^0.6.8;
-pragma experimental ABIEncoderV2;
+pragma solidity ^0.8.0;
 
 import {
   SafeMath as SafeMath256
@@ -35,7 +34,7 @@ library AssetTransfers {
     uint256 balanceAfter = tokenAddress.balanceOf(address(this));
     require(
       balanceAfter.sub(balanceBefore) == quantityInAssetUnits,
-      'Token contract returned transferFrom success without expected balance change'
+      'Unexpected balance change'
     );
   }
 
@@ -62,7 +61,7 @@ library AssetTransfers {
       uint256 balanceAfter = IBEP20(asset).balanceOf(walletOrContract);
       require(
         balanceAfter.sub(balanceBefore) == quantityInAssetUnits,
-        'Token contract returned transfer success without expected balance change'
+        'Unexpected balance change'
       );
     }
   }

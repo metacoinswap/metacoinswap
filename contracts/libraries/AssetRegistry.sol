@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
-pragma solidity ^0.6.8;
-pragma experimental ABIEncoderV2;
+pragma solidity ^0.8.0;
 
 import { Address } from './Address.sol';
 
@@ -25,13 +24,13 @@ library AssetRegistry {
     string memory symbol,
     uint8 decimals
   ) internal {
-    require(decimals <= 32, 'Token cannot have more than 32 decimals');
+    require(decimals <= 32, 'Cannot have more than 32 decimals');
     require(
       tokenAddress != IBEP20(address(0x0)) && Address.isContract(address(tokenAddress)),
-      'Invalid token address'
+      'Invalid address'
     );
     // The string type does not have a length property so cast to bytes to check for empty string
-    require(bytes(symbol).length > 0, 'Invalid token symbol');
+    require(bytes(symbol).length > 0, 'Invalid symbol');
     require(
       !self.assetsByAddress[address(tokenAddress)].isConfirmed,
       'Token already finalized'
@@ -73,7 +72,7 @@ library AssetRegistry {
     Structs.Asset memory asset = self.assetsByAddress[address(tokenAddress)];
     require(
       asset.exists && asset.isConfirmed,
-      'Registration of token not finalized'
+      'Registration  not finalized'
     );
     require(!isStringEqual(symbol, 'BNB'), 'BNB symbol reserved');
 
@@ -101,7 +100,7 @@ library AssetRegistry {
     Structs.Asset memory asset = self.assetsByAddress[assetAddress];
     require(
       asset.exists && asset.isConfirmed,
-      'No confirmed asset found for address'
+      'No confirmed asset found'
     );
 
     return asset;
@@ -136,7 +135,7 @@ library AssetRegistry {
     }
     require(
       asset.exists && asset.isConfirmed,
-      'No confirmed asset found for symbol'
+      'No confirmed asset found'
     );
 
     return asset;

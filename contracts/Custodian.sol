@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
-pragma solidity ^0.6.8;
-pragma experimental ABIEncoderV2;
+pragma solidity ^0.8.0;
 
 import { Address } from './libraries/Address.sol';
 
@@ -32,7 +31,7 @@ contract Custodian is ICustodian, Owned {
    *
    * @param exchange Address of deployed Exchange contract to whitelist
    */
-  constructor(address exchange) public Owned() {
+  constructor(address exchange) Owned() {
     require(Address.isContract(exchange), 'Invalid exchange contract address');
 
     _exchange = exchange;

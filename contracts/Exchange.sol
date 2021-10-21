@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
-pragma solidity ^0.6.8;
-pragma experimental ABIEncoderV2;
+pragma solidity ^0.8.0;
 
 import { Address } from './libraries/Address.sol';
 import { ECDSA } from './libraries/ECDSA.sol';
@@ -181,15 +180,15 @@ contract Exchange is IExchange, Owned {
 
   // Constant values //
 
-  uint256 constant _maxChainPropagationPeriod = (7 * 24 * 60 * 60) / 3; // 1 week at 3s/block
-  uint64 constant _maxTradeFeeBasisPoints = 20 * 100; // 20%;
-  uint64 constant _maxWithdrawalFeeBasisPoints = 20 * 100; // 20%;
+  uint256 constant _maxChainPropagationPeriod = 201600; //(7 * 24 * 60 * 60) / 3; 1 week at 3s/block
+  uint64 constant _maxTradeFeeBasisPoints = 2000; // 20 * 100; 20%;
+  uint64 constant _maxWithdrawalFeeBasisPoints = 2000; // 20 * 100; // 20%;
 
   /**
    * @notice Instantiate a new `Exchange` contract
    *
    * @dev Sets `_owner` and `_admin` to `msg.sender` */
-  constructor() public Owned() {}
+  constructor() Owned() {}
 
   /**
    * @notice Sets the address of the `Custodian` contract
@@ -396,7 +395,7 @@ contract Exchange is IExchange, Owned {
   ) external {
     require(
       address(tokenAddress) != address(0x0),
-      'Use depositBNB to deposit BNB'
+      'Use depositBNB'
     );
     deposit(msg.sender, address(tokenAddress), quantityInAssetUnits);
   }
@@ -419,7 +418,7 @@ contract Exchange is IExchange, Owned {
     );
     require(
       address(tokenAddress) != address(0x0),
-      'Use depositBNB to deposit BNB'
+      'Use depositBNB'
     );
 
     deposit(msg.sender, address(tokenAddress), quantityInAssetUnits);
@@ -505,13 +504,13 @@ contract Exchange is IExchange, Owned {
     // lock their wallet from trades indefinitely
     require(
       timestampInMs < getOneDayFromNowInMs(),
-      'Nonce timestamp too far in future'
+      'Nonce too far in future'
     );
 
     if (_nonceInvalidations[msg.sender].exists) {
       require(
         _nonceInvalidations[msg.sender].timestampInMs < timestampInMs,
-        'Nonce timestamp already invalidated'
+        'Nonce already invalidated'
       );
       require(
         _nonceInvalidations[msg.sender].effectiveBlockNumber <= block.number,
@@ -614,7 +613,7 @@ contract Exchange is IExchange, Owned {
    * and assets may then be withdrawn one at a time via `withdrawExit`
    */
   function exitWallet() external {
-    require(!_walletExits[msg.sender].exists, 'Wallet already exited');
+    require(!_walletExits[msg.sender].exists, 'Wallet exited');
 
     _walletExits[msg.sender] = WalletExit(
       true,
@@ -996,8 +995,8 @@ contract Exchange is IExchange, Owned {
         order.walletAddress
       ),
       order.side == Enums.OrderSide.Buy
-        ? 'Invalid wallet signature for buy order'
-        : 'Invalid wallet signature for sell order'
+        ? 'Invalid signature for buy order'
+        : 'Invalid signature for sell order'
     );
 
     return orderHash;
@@ -1010,12 +1009,12 @@ contract Exchange is IExchange, Owned {
     require(
       UUID.getTimestampInMsFromUuidV1(buy.nonce) >
         getLastInvalidatedTimestamp(buy.walletAddress),
-      'Buy order nonce timestamp too low'
+      'Buy order nonce too low'
     );
     require(
       UUID.getTimestampInMsFromUuidV1(sell.nonce) >
         getLastInvalidatedTimestamp(sell.walletAddress),
-      'Sell order nonce timestamp too low'
+      'Sell order nonce too low'
     );
   }
 
@@ -1032,7 +1031,7 @@ contract Exchange is IExchange, Owned {
         withdrawal.walletSignature,
         withdrawal.walletAddress
       ),
-      'Invalid wallet signature'
+      'Invalid signature'
     );
 
     return withdrawalHash;
