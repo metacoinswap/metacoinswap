@@ -15,7 +15,7 @@ library Signatures {
     bytes32 hash,
     bytes memory signature,
     address signer
-  ) internal pure returns (bool) {
+  ) external pure returns (bool) {
     return
       ECDSA.recover(ECDSA.toEthSignedMessageHash(hash), signature) == signer;
   }
@@ -24,7 +24,7 @@ library Signatures {
     Structs.Order memory order,
     string memory baseSymbol,
     string memory quoteSymbol
-  ) internal pure returns (bytes32) {
+  ) external pure returns (bytes32) {
     require(
       order.signatureHashVersion == 1,
       'Signature hash version must be 1'
@@ -61,7 +61,7 @@ library Signatures {
   }
 
   function getWithdrawalWalletHash(Structs.Withdrawal memory withdrawal)
-    internal
+    external
     pure
     returns (bytes32)
   {

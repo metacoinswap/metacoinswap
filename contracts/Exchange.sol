@@ -3,7 +3,6 @@
 pragma solidity ^0.8.0;
 
 import { Address } from './libraries/Address.sol';
-import { ECDSA } from './libraries/ECDSA.sol';
 import {
   SafeMath as SafeMath256
 } from './libraries/SafeMath.sol';
@@ -22,6 +21,7 @@ import {
   Structs
 } from './libraries/Interfaces.sol';
 import { UUID } from './libraries/UUID.sol';
+import { IterableMapping } from './libraries/IterableMapping.sol';
 
 
 /**
@@ -36,6 +36,7 @@ contract Exchange is IExchange, Owned {
   using SafeMath64 for uint64;
   using SafeMath256 for uint256;
   using AssetRegistry for AssetRegistry.Storage;
+  using IterableMapping for IterableMapping.Map;
 
   // Events //
 
@@ -166,8 +167,8 @@ contract Exchange is IExchange, Owned {
   mapping(bytes32 => bool) _completedWithdrawalHashes;
   address payable _custodian;
   uint64 _depositIndex;
-  // Mapping of wallet => asset => balance
-  mapping(address => mapping(address => uint64)) _balancesInPips;
+  // Mapping of wallet => IterableMapping.Map
+  mapping(address => IterableMapping.Map) _balancesInPips;
   // Mapping of wallet => last invalidated timestampInMs
   mapping(address => NonceInvalidation) _nonceInvalidations;
   // Mapping of order hash => filled quantity in pips
@@ -202,7 +203,7 @@ contract Exchange is IExchange, Owned {
    * contract's address
    */
   function setCustodian(address payable newCustodian) external onlyAdmin {
-    require(_custodian == address(0x0), 'Custodian can only be set once');
+    require(_custodian == address(0x0), 'Can only be set once');
     require(Address.isContract(newCustodian), 'Invalid address');
 
     _custodian = newCustodian;
@@ -277,7 +278,7 @@ contract Exchange is IExchange, Owned {
     );
     return
       AssetUnitConversions.pipsToAssetUnits(
-        _balancesInPips[wallet][assetAddress],
+        _balancesInPips[wallet].get(assetAddress),
         asset.decimals
       );
   }
@@ -303,7 +304,7 @@ contract Exchange is IExchange, Owned {
     );
     return
       AssetUnitConversions.pipsToAssetUnits(
-        _balancesInPips[wallet][asset.assetAddress],
+        _balancesInPips[wallet].get(asset.assetAddress),
         asset.decimals
       );
   }
@@ -323,7 +324,7 @@ contract Exchange is IExchange, Owned {
   {
     require(wallet != address(0x0), 'Invalid wallet address');
 
-    return _balancesInPips[wallet][assetAddress];
+    return _balancesInPips[wallet].get(assetAddress);
   }
 
   /**
@@ -343,7 +344,23 @@ contract Exchange is IExchange, Owned {
     address assetAddress = _assetRegistry
       .loadAssetBySymbol(assetSymbol, getCurrentTimestampInMs())
       .assetAddress;
-    return _balancesInPips[wallet][assetAddress];
+    return _balancesInPips[wallet].get(assetAddress);
+  }
+
+  /**
+   * @notice Load a wallet's asset address of balance
+   *
+   * @param wallet The wallet address to load the balance asset address for.
+   *
+   * @return All assets address of a wallet's balance
+   */
+  function loadBalanceAssetAddress(address wallet) external view returns (address[] memory) {
+    address[] memory assetsAddress = new address[](_balancesInPips[wallet].size());
+    for (uint i = 0; i < _balancesInPips[wallet].size(); i++) {
+        address key = _balancesInPips[wallet].getKeyAtIndex(i);
+        assetsAddress[i] = key;
+    }
+    return assetsAddress;
   }
 
   /**
@@ -467,14 +484,14 @@ contract Exchange is IExchange, Owned {
       quantityInAssetUnitsWithoutFractionalPips
     );
 
-    uint64 newExchangeBalanceInPips = _balancesInPips[wallet][assetAddress].add(
+    uint64 newExchangeBalanceInPips = _balancesInPips[wallet].get(assetAddress).add(
       quantityInPips
     );
     uint256 newExchangeBalanceInAssetUnits = AssetUnitConversions
       .pipsToAssetUnits(newExchangeBalanceInPips, asset.decimals);
 
     // Update balance with actual transferred quantity
-    _balancesInPips[wallet][assetAddress] = newExchangeBalanceInPips;
+    _balancesInPips[wallet].set(assetAddress, newExchangeBalanceInPips);
     _depositIndex++;
 
     emit Deposited(
@@ -551,12 +568,12 @@ contract Exchange is IExchange, Owned {
     require(
       getFeeBasisPoints(withdrawal.gasFeeInPips, withdrawal.quantityInPips) <=
         _maxWithdrawalFeeBasisPoints,
-      'Excessive withdrawal fee'
+      'Excessive fee'
     );
     bytes32 withdrawalHash = validateWithdrawalSignature(withdrawal);
     require(
       !_completedWithdrawalHashes[withdrawalHash],
-      'Hash already withdrawn'
+      'Already withdrawn'
     );
 
     // If withdrawal is by asset symbol (most common) then resolve to asset address
@@ -575,17 +592,22 @@ contract Exchange is IExchange, Owned {
     uint256 netAssetQuantityInAssetUnits = AssetUnitConversions
       .pipsToAssetUnits(netAssetQuantityInPips, asset.decimals);
     uint64 newExchangeBalanceInPips = _balancesInPips[withdrawal
-      .walletAddress][asset.assetAddress]
+      .walletAddress].get(asset.assetAddress)
       .sub(withdrawal.quantityInPips);
     uint256 newExchangeBalanceInAssetUnits = AssetUnitConversions
       .pipsToAssetUnits(newExchangeBalanceInPips, asset.decimals);
 
-    _balancesInPips[withdrawal.walletAddress][asset
-      .assetAddress] = newExchangeBalanceInPips;
-    _balancesInPips[_feeWallet][asset
-      .assetAddress] = _balancesInPips[_feeWallet][asset.assetAddress].add(
+    if (newExchangeBalanceInPips==0) {
+      _balancesInPips[withdrawal.walletAddress].remove(asset
+      .assetAddress);
+    } else {
+      _balancesInPips[withdrawal.walletAddress].set(asset
+      .assetAddress, newExchangeBalanceInPips);
+    }
+    _balancesInPips[_feeWallet].set(asset
+      .assetAddress, _balancesInPips[_feeWallet].get(asset.assetAddress).add(
       withdrawal.gasFeeInPips
-    );
+    ));
 
     ICustodian(_custodian).withdraw(
       withdrawal.walletAddress,
@@ -630,19 +652,19 @@ contract Exchange is IExchange, Owned {
    * @param assetAddress The address of the asset to withdraw
    */
   function withdrawExit(address assetAddress) external {
-    require(isWalletExitFinalized(msg.sender), 'Wallet exit not finalized');
+    require(isWalletExitFinalized(msg.sender), 'Wallet not finalized');
 
     Structs.Asset memory asset = _assetRegistry.loadAssetByAddress(
       assetAddress
     );
-    uint64 balanceInPips = _balancesInPips[msg.sender][assetAddress];
+    uint64 balanceInPips = _balancesInPips[msg.sender].get(assetAddress);
     uint256 balanceInAssetUnits = AssetUnitConversions.pipsToAssetUnits(
       balanceInPips,
       asset.decimals
     );
 
-    require(balanceInAssetUnits > 0, 'No balance for asset');
-    _balancesInPips[msg.sender][assetAddress] = 0;
+    require(balanceInAssetUnits > 0, 'Balance for asset');
+    _balancesInPips[msg.sender].remove(assetAddress);
     ICustodian(_custodian).withdraw(
       payable(msg.sender),
       assetAddress,
@@ -660,6 +682,48 @@ contract Exchange is IExchange, Owned {
   }
 
   /**
+   * @notice Withdraw the entire balance of all assets for an exited wallet. The Chain Propagation Period must
+   * have already passed since calling `exitWallet`
+   */
+  function withdrawAllExit() external {
+    require(isWalletExitFinalized(msg.sender), 'Wallet not finalized');
+    
+    address[] memory assetsAddress = new address[](_balancesInPips[msg.sender].size());
+    for (uint i = 0; i < _balancesInPips[msg.sender].size(); i++) {
+      address assetAddress = _balancesInPips[msg.sender].getKeyAtIndex(i);
+      assetsAddress[i] = assetAddress;
+      Structs.Asset memory asset = _assetRegistry.loadAssetByAddress(
+        assetAddress
+      );
+      uint64 balanceInPips = _balancesInPips[msg.sender].get(assetAddress);
+      uint256 balanceInAssetUnits = AssetUnitConversions.pipsToAssetUnits(
+        balanceInPips,
+        asset.decimals
+      );
+      if (balanceInAssetUnits == 0) {
+        continue;
+      }
+      ICustodian(_custodian).withdraw(
+        payable(msg.sender),
+        assetAddress,
+        balanceInAssetUnits
+      );
+
+      emit WalletExitWithdrawn(
+        msg.sender,
+        assetAddress,
+        asset.symbol,
+        balanceInPips,
+        0,
+        0
+      );
+    }
+    for (uint i = 0; i < assetsAddress.length; i++) {
+        _balancesInPips[msg.sender].remove(assetsAddress[i]);
+    }
+  }
+
+  /**
    * @notice Clears exited status of sending wallet. Upon mining immediately enables
    * deposits, trades, and withdrawals by sending wallet
    */
@@ -671,7 +735,26 @@ contract Exchange is IExchange, Owned {
     emit WalletExitCleared(msg.sender);
   }
 
-  function isWalletExitFinalized(address wallet) internal view returns (bool) {
+  /**
+   * @notice Check if the wallet is exited, regardless of whether it is finalized
+   *
+   * @param wallet The address of the wallet to check
+   *
+   * @return The exited status of wallet
+   */
+  function isWalletExit(address wallet) public view returns (bool) {
+    WalletExit storage exit = _walletExits[wallet];
+    return exit.exists;
+  }
+
+  /**
+   * @notice Check if the wallet is exited and finalized
+   *
+   * @param wallet The address of the wallet to check
+   *
+   * @return The exited and finalized status of wallet
+   */
+  function isWalletExitFinalized(address wallet) public view returns (bool) {
     WalletExit storage exit = _walletExits[wallet];
     return exit.exists && exit.effectiveBlockNumber <= block.number;
   }
@@ -696,11 +779,11 @@ contract Exchange is IExchange, Owned {
   ) public override onlyDispatcher {
     require(
       !isWalletExitFinalized(buy.walletAddress),
-      'Buy wallet exit finalized'
+      'Buy wallet finalized'
     );
     require(
       !isWalletExitFinalized(sell.walletAddress),
-      'Sell wallet exit finalized'
+      'Sell wallet finalized'
     );
     require(
       buy.walletAddress != sell.walletAddress,
@@ -742,36 +825,72 @@ contract Exchange is IExchange, Owned {
     Structs.Trade memory trade
   ) private {
     // Seller gives base asset including fees
-    _balancesInPips[sell.walletAddress][trade
-      .baseAssetAddress] = _balancesInPips[sell.walletAddress][trade
-      .baseAssetAddress]
+    uint64 sellerBaseQuantity = _balancesInPips[sell.walletAddress].get(trade
+      .baseAssetAddress)
       .sub(trade.grossBaseQuantityInPips);
+    if (sellerBaseQuantity > 0) {
+      _balancesInPips[sell.walletAddress].set(trade
+      .baseAssetAddress, sellerBaseQuantity);
+    } else {
+      _balancesInPips[sell.walletAddress].remove(trade
+      .baseAssetAddress);
+    }
     // Buyer receives base asset minus fees
-    _balancesInPips[buy.walletAddress][trade
-      .baseAssetAddress] = _balancesInPips[buy.walletAddress][trade
-      .baseAssetAddress]
+    uint64 buyerBaseQuantity = _balancesInPips[buy.walletAddress].get(trade
+      .baseAssetAddress)
       .add(trade.netBaseQuantityInPips);
+    if (buyerBaseQuantity > 0) {
+      _balancesInPips[buy.walletAddress].set(trade
+      .baseAssetAddress, buyerBaseQuantity);
+    } else {
+      _balancesInPips[buy.walletAddress].remove(trade
+      .baseAssetAddress);
+    }
 
     // Buyer gives quote asset including fees
-    _balancesInPips[buy.walletAddress][trade
-      .quoteAssetAddress] = _balancesInPips[buy.walletAddress][trade
-      .quoteAssetAddress]
+    uint64 buyerQuoteQuantity = _balancesInPips[buy.walletAddress].get(trade
+      .quoteAssetAddress)
       .sub(trade.grossQuoteQuantityInPips);
+    if (buyerQuoteQuantity > 0) {
+      _balancesInPips[buy.walletAddress].set(trade
+      .quoteAssetAddress, buyerQuoteQuantity);
+    } else {
+       _balancesInPips[buy.walletAddress].remove(trade
+      .quoteAssetAddress);
+    }
     // Seller receives quote asset minus fees
-    _balancesInPips[sell.walletAddress][trade
-      .quoteAssetAddress] = _balancesInPips[sell.walletAddress][trade
-      .quoteAssetAddress]
+    uint64 sellerQuoteQuantity = _balancesInPips[sell.walletAddress].get(trade
+      .quoteAssetAddress)
       .add(trade.netQuoteQuantityInPips);
+    if (sellerQuoteQuantity > 0) {
+      _balancesInPips[sell.walletAddress].set(trade
+      .quoteAssetAddress, sellerQuoteQuantity);
+    } else {
+      _balancesInPips[sell.walletAddress].remove(trade
+      .quoteAssetAddress);
+    }
 
     // Maker and taker fees to fee wallet
-    _balancesInPips[_feeWallet][trade
-      .makerFeeAssetAddress] = _balancesInPips[_feeWallet][trade
-      .makerFeeAssetAddress]
+    uint64 makerFeeQuantity = _balancesInPips[_feeWallet].get(trade
+      .makerFeeAssetAddress)
       .add(trade.makerFeeQuantityInPips);
-    _balancesInPips[_feeWallet][trade
-      .takerFeeAssetAddress] = _balancesInPips[_feeWallet][trade
-      .takerFeeAssetAddress]
+    if (makerFeeQuantity > 0) {
+      _balancesInPips[_feeWallet].set(trade
+      .makerFeeAssetAddress, makerFeeQuantity);
+    } else {
+      _balancesInPips[_feeWallet].remove(trade
+      .makerFeeAssetAddress);
+    }
+    uint64 takerFeeQuantity = _balancesInPips[_feeWallet].get(trade
+      .takerFeeAssetAddress)
       .add(trade.takerFeeQuantityInPips);
+    if (takerFeeQuantity > 0) {
+      _balancesInPips[_feeWallet].set(trade
+      .takerFeeAssetAddress, takerFeeQuantity);
+    } else {
+      _balancesInPips[_feeWallet].remove(trade
+      .takerFeeAssetAddress);
+    }
   }
 
   function updateOrderFilledQuantities(
@@ -791,7 +910,7 @@ contract Exchange is IExchange, Owned {
     bytes32 orderHash,
     Structs.Trade memory trade
   ) private {
-    require(!_completedOrderHashes[orderHash], 'Order double filled');
+    require(!_completedOrderHashes[orderHash], 'Double filled');
 
     // Total quantity of above filled as a result of all trade executions, including this one
     uint64 newFilledQuantityInPips;
@@ -802,7 +921,7 @@ contract Exchange is IExchange, Owned {
     if (order.isQuantityInQuote) {
       require(
         isMarketOrderType(order.orderType),
-        'Order quote quantity only valid for market orders'
+        'Only valid for market orders'
       );
       newFilledQuantityInPips = trade.grossQuoteQuantityInPips.add(
         _partiallyFilledOrderQuantitiesInPips[orderHash]
@@ -816,7 +935,7 @@ contract Exchange is IExchange, Owned {
 
     require(
       newFilledQuantityInPips <= order.quantityInPips,
-      'Order overfilled'
+      'Overfilled'
     );
 
     if (newFilledQuantityInPips < order.quantityInPips) {
@@ -854,7 +973,7 @@ contract Exchange is IExchange, Owned {
     require(
       buyBaseAsset.assetAddress == trade.baseAssetAddress &&
         buyQuoteAsset.assetAddress == trade.quoteAssetAddress,
-      'Buy order market symbol address resolution mismatch'
+      'Buy order market symbol resolution mismatch'
     );
 
     // Sell order market pair
@@ -869,7 +988,7 @@ contract Exchange is IExchange, Owned {
     require(
       sellBaseAsset.assetAddress == trade.baseAssetAddress &&
         sellQuoteAsset.assetAddress == trade.quoteAssetAddress,
-      'Sell order market symbol address resolution mismatch'
+      'Sell order market symbol resolution mismatch'
     );
 
     // Fee asset validation
@@ -896,11 +1015,11 @@ contract Exchange is IExchange, Owned {
   ) private pure {
     require(
       trade.grossBaseQuantityInPips > 0,
-      'Base quantity must be greater than zero'
+      'Base quantity is zero'
     );
     require(
       trade.grossQuoteQuantityInPips > 0,
-      'Quote quantity must be greater than zero'
+      'Quote quantity is zero'
     );
 
     if (isLimitOrderType(buy.orderType)) {
@@ -955,7 +1074,7 @@ contract Exchange is IExchange, Owned {
           ? trade.makerFeeQuantityInPips
           : trade.takerFeeQuantityInPips
       ) == trade.grossBaseQuantityInPips,
-      'Net base plus fee is not equal to gross'
+      'Base plus fee is not equal to gross'
     );
     require(
       trade.netQuoteQuantityInPips.add(
@@ -963,7 +1082,7 @@ contract Exchange is IExchange, Owned {
           ? trade.makerFeeQuantityInPips
           : trade.takerFeeQuantityInPips
       ) == trade.grossQuoteQuantityInPips,
-      'Net quote plus fee is not equal to gross'
+      'Quote plus fee is not equal to gross'
     );
   }
 
@@ -1118,7 +1237,7 @@ contract Exchange is IExchange, Owned {
     require(newDispatcherWallet != address(0x0), 'Invalid wallet address');
     require(
       newDispatcherWallet != _dispatcherWallet,
-      'Must be different from current dispatcher'
+      'Must be different address'
     );
     address oldDispatcherWallet = _dispatcherWallet;
     _dispatcherWallet = newDispatcherWallet;
