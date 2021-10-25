@@ -43,12 +43,12 @@
 > **TestCoin1:**
 > - tokenAddress: 0x7C28F63e0671D7e7BF1c6A8d81Dd0D7a93004FCe
 > - symbol: TSC1
-> - decimals:18
+> - decimals: 18
 
 > **TestCoin2:**
 > - tokenAddress: 0x52a6432d0a04a43A92e3b0145A4a5d160369C26f
 > - symbol: TSC2
-> - decimals:6
+> - decimals: 6
 ***
 ## **7. 确认注册**
 使用Admin账号调用Exchange合约的`confirmTokenRegistration`方法确认上一步注册的两个测试通证，参数需要与上一步相同，分别为
@@ -56,12 +56,12 @@
 > **TestCoin1:**
 > - tokenAddress: 0x7C28F63e0671D7e7BF1c6A8d81Dd0D7a93004FCe
 > - symbol: TSC1
-> - decimals:18
+> - decimals: 18
 
 > **TestCoin2:**
 > - tokenAddress: 0x52a6432d0a04a43A92e3b0145A4a5d160369C26f
 > - symbol: TSC2
-> - decimals:6
+> - decimals: 6
 
 之后可以使用任意账号调用Exchange合约的`loadAssetBySymbol`方法查询已确认的通证信息，参数为通证标识和当前时间戳（毫秒级）
 ***

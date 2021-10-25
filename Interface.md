@@ -64,7 +64,7 @@
 > - newChainPropagationPeriod: 新`chainPropagationPeriod`值  
 > 
 > Payable: false  
-> 成功条件: `newChainPropagationPeriod`需要小于Exchange合约中对该值的最大限制（目前合约中硬编码为201600）
+> 成功条件: `newChainPropagationPeriod`需要小于Exchange合约中对该值的最大限制（目前合约中硬编码为201600）  
 > 事件：`event ChainPropagationPeriodChanged(uint256 previousValue, uint256 newValue)`
 ***
 ## **2. 通证注册**
@@ -149,7 +149,7 @@
 > - assetSymbol: 要入金的BEP20通证的标识符  
 > - quantityInAssetUnits: 入金的额度，使用通证合约内部精度表示  
 > 
-> - Payable: false  
+> Payable: false  
 > 成功条件:
 > - 通证标识符已注册并确认  
 > - 用户钱包未退出  
@@ -177,7 +177,7 @@
 ### **function executeTrade(Structs.Order memory buy, Structs.Order memory sell, Structs.Trade memory trade) public override onlyDispatcher**
 > 功能: 由用户钱包发起并签名的订单，在撮合成功后交由Dispatcher账号调用`executeTrade`方法将数据上链，届时相关账户的余额会根据交易信息发生相应变化  
 > 调用方: Dispatcher账号  
-> - 参数: 
+> 参数: 
 > - buy: `Structs.Order`结构体，买方订单，各字段定义参考结构体说明一节  
 > - sell: `Structs.Order`结构体，卖方订单，各字段定义参考结构体说明一节  
 > trade: `Structs.Trade`结构体，表示撮合成功的一对订单的相关信息，各字段定义参考结构体说明一节  
@@ -507,7 +507,7 @@ h. TokenSymbolAdded
 > - string assetSymbol: 要添加的通证标识符
 ***
 i. TradeExecuted
-> 说明: 交易结算事件，当Dispatcher账号调用`executeTrade`方法时发出该事件
+> 说明: 交易结算事件，当Dispatcher账号调用`executeTrade`方法时发出该事件  
 > 参数: 
 > - address buyWallet: 发起买单的钱包地址  
 > - address sellWallet: 发起卖单的钱包地址  
