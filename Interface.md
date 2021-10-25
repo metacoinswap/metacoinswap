@@ -446,3 +446,107 @@ struct Trade {
     Enums.OrderSide makerSide;
 }
 ````
+***
+## **10. 事件说明**
+a. DispatcherChanged
+> 说明: 当Admin账号调用`setDispatcher`方法修改Dispatcher账号成功后发出该事件  
+> 参数:  
+> - uint256 previousValue: 修改之前的Dispatcher账号  
+> - uint256 newValue: 修改之后的Dispatcher账号    
+***
+b. FeeWalletChanged
+> 说明: 当Admin账号调用`setFeeWallet`方法修改手续费钱包账号成功后发出该事件  
+> 参数:  
+> - uint256 previousValue: 修改之前的手续费钱包账号  
+> - uint256 newValue: 修改之后的手续费钱包账号    
+***
+c. ChainPropagationPeriodChanged
+> 说明: Admin账号调用`setChainPropagationPeriod`方法修改`chainPropagationPeriod`成功后发出该事件  
+> 参数: 
+> - uint256 previousValue: 修改之前的`chainPropagationPeriod`值  
+> - uint256 newValue: 修改之后的`chainPropagationPeriod`值  
+***
+d. Deposited
+> 说明: 入金事件，当用户通过`depositBNB`入金BNB以及通过`depositAsset`或`depositAssetBySymbol`入金BEP20通证成功后发出该事件  
+> 参数:  
+> - uint64 index: 入金事务序号，每笔入金事件index自增1  
+> - address indexed wallet: 执行入金操作的钱包地址  
+> - address indexed assetAddress: 入金的通症合约地址  
+> - string indexed assetSymbolIndex: 入金的通证标识符（用于索引）  
+> - string assetSymbol: 入金的通证标识符  
+> - uint64 quantityInPips: 入金金额，使用Exchange合约内部精度表示  
+> - uint64 newExchangeBalanceInPips: 用户入金后的该通证余额，使用Exchange合约内部精度表示  
+> - uint256 newExchangeBalanceInAssetUnits: 用户入金后的该通证余额，使用通证合约的精度表示
+>***
+e. OrderNonceInvalidated
+> 说明: 取消订单执行事件，当用户调用`invalidateOrderNonce`方法成功后发出该事件  
+> 参数:  
+> - address indexed wallet: 调用`invalidateOrderNonce`方法的钱包地址  
+> - uint128 nonce: 当用户调用`invalidateOrderNonce`方法时传入的UUIDv1参数  
+> - uint128 timestampInMs: 从`nonce`参数中解析出的时间戳（毫秒级）  
+> - uint256 effectiveBlockNumber: `invalidateOrderNonce`方法生效时的块序号  
+***
+f. TokenRegistered
+> 说明: 通证注册事件，当Admin账号调用`registerToken`方法成功后发出该事件  
+> 参数: 
+> - IBEP20 indexed assetAddress: 要注册的BEP20通证地址  
+> - string assetSymbol: 要注册的BEP20通证标识符  
+> - uint8 decimals: 要注册的BEP20通证精度  
+***
+g. TokenRegistrationConfirmed
+> 说明: 确认通证注册事件，当Admin账号调用`confirmAssetRegistration`方法成功后发出该事件    
+> 参数: 
+> - IBEP20 indexed assetAddress: 被确认的BEP20通证地址  
+> - string assetSymbol: 被确认的BEP20通证标识符  
+> - uint8 decimals: 被确认的BEP20通证精度  
+***
+h. TokenSymbolAdded
+> 说明: 添加通证标识符事件，当Admin账号调用`addTokenSymbol`方法成功后发出该事件  
+> 参数:
+> - IBEP20 indexed assetAddress: 要添加标识符的通证合约地址  
+> - string assetSymbol: 要添加的通证标识符
+***
+i. TradeExecuted
+> 说明: 交易结算事件，当Dispatcher账号调用`executeTrade`方法时发出该事件
+> 参数: 
+> - address buyWallet: 发起买单的钱包地址  
+> - address sellWallet: 发起卖单的钱包地址  
+> - string indexed baseAssetSymbolIndex: 基础通证的标识符（索引用）  
+> - string indexed quoteAssetSymbolIndex: 计价通证的标识符（索引用）  
+> - string baseAssetSymbol: 基础通证的标识符  
+> - string quoteAssetSymbol: 计价通证的标识符
+> - uint64 baseQuantityInPips: 基础通证的交易额，使用Exchange合约的内部精度表示  
+> - uint64 quoteQuantityInPips: 计价通证的交易额，使用Exchange合约的内部精度表示
+> - uint64 tradePriceInPips: 交易价格，使用Exchange合约的内部精度表示
+> - bytes32 buyOrderHash: 买单的哈希值
+> - bytes32 sellOrderHash: 卖单的哈希值
+***
+j. WalletExited
+> 说明: 用户钱包退出事件，当用户钱包调用`exitWallet`方法退出交易所后发出该事件  
+> 参数:  
+> - address indexed wallet: 要退出的钱包地址  
+> - uint256 effectiveBlockNumber: 退出操作生效时的块序号
+***
+k. WalletExitWithdrawn
+> 说明: 当用户钱包通过`withdrawExit`方法提现通证余额成功后发出该事件  
+> 参数:  
+> - address indexed wallet: 发起提现操作的钱包地址  
+> - address indexed assetAddress: 要提现的通证合约地址  
+> - string assetSymbol: 要提现的通证标识符  
+> - uint64 quantityInPips: 提现金额，使用Exchange合约的内部精度表示  
+> - uint64 newExchangeBalanceInPips: 提现后交易所内该通证的余额，使用Exchange合约的内部精度表示
+> - uint256 newExchangeBalanceInAssetUnits: 提现后交易所内该通证的余额，使用该通证合约的精度表示
+***
+l. WalletExitCleared
+> 说明: 当用户钱包调用`exitWallet`方法成功后发出该事件  
+> 参数:  
+> - address indexed wallet: 要清除退出状态的钱包地址  
+***
+m. Withdrawn
+> 说明: 当Dispatcher账号调用`withdraw`方法成功后发出该事件  
+> 参数:  
+> - address indexed wallet: 发起提现操作的钱包地址  
+> - address indexed assetAddress: 要提现的通证合约地址  
+> - string assetSymbol: 要提现的通证标识符  
+> - uint64 newExchangeBalanceInPips: 提现后交易所内该通证的余额，使用Exchange合约的内部精度表示
+> - uint256 newExchangeBalanceInAssetUnits: 提现后交易所内该通证的余额，使用该通证合约的精度表示
