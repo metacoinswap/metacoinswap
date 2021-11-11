@@ -155,6 +155,14 @@ contract Structs {
     // The ECDSA signature of the withdrawal hash as produced by Signatures.getWithdrawalWalletHash
     bytes walletSignature;
   }
+
+  /**
+   * @notice return type for `Exchange.executeTrades`
+   */
+  struct ExecRet {
+    bool success;
+    string err;
+  }
 }
 
 
@@ -301,6 +309,19 @@ interface IExchange {
     Structs.Order calldata buy,
     Structs.Order calldata sell,
     Structs.Trade calldata trade
+  ) external;
+
+  /**
+   * @notice Execute multiple trades
+   *
+   * @param buy A `Structs.Order` struct array encoding the parameters of the buy-side orders (receiving base, giving quote)
+   * @param sell A `Structs.Order` struct array encoding the parameters of the sell-side order (giving base, receiving quote)
+   * @param trade A `Structs.Trade` struct array encoding the parameters of this trade execution of the counterparty orders
+   */
+  function executeTrades(
+    Structs.Order[] memory buy,
+    Structs.Order[] memory sell,
+    Structs.Trade[] memory trade
   ) external;
 
   /**

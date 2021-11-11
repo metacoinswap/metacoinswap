@@ -15,15 +15,15 @@
 > 编译器版本: `0.8.9+commit.e5eed63a`  
 > EVM版本: `constantinople`  
 > 优化: 开启  
-> 优化轮数: 21  
+> 优化轮数: 16
 ***
 ## **3. 部署合约**
-- 使用Owner账号部署Exchange合约，无部署参数，部署后的合约地址为0x1c74ba5d6a25e26a84f6a3c5279fea3b71bf461e  
-- 使用Owner账号部署Custodian合约，部署参数为0x1c74ba5d6a25e26a84f6a3c5279fea3b71bf461e（即Exchange合约的地址），部署后的合约地址为0xefe7a264ec30c8cef6c0800ef863b3325068876b
+- 使用Owner账号部署Exchange合约，无部署参数，部署后的合约地址为0x1dc28e480d37d695796dd465eb4c5ebb39471852  
+- 使用Owner账号部署Custodian合约，部署参数为0x1dc28e480d37d695796dd465eb4c5ebb39471852（即Exchange合约的地址），部署后的合约地址为0xE547C11039534654aEDfac6b87a52702450ee4Ee
 ***
 ## **4. 初始化Exchange合约**
 - 使用Owner账号调用Exchange合约的`setAdmin`方法设置Admin账号为`0xd27513F91b9375887421e1D35Cc0Ea9130a859bb`  
-- 使用Admin账号调用Exchange合约的`setCustodian`方法设置通证托管合约地址为`0xefe7a264ec30c8cef6c0800ef863b3325068876b`  
+- 使用Admin账号调用Exchange合约的`setCustodian`方法设置通证托管合约地址为`0xE547C11039534654aEDfac6b87a52702450ee4Ee`  
 - 使用Admin账号调用Exchange合约的`setDispatcher`方法设置Dispatcher账号为`0xDfD1BE128eD36BDe8d263B98979A1D6ef1FdF946`  
 - 使用Admin账号调用Exchange合约的`setFeeWallet`方法设置手续费钱包账号为`0x499A465e20767b975a09c83D4a5872F6d5deD220`  
 - 使用Admin账号调用Exchange合约的`setChainPropagationPeriod`方法设置确认块个数为20  
@@ -208,24 +208,24 @@ func pipToDecimal(pips uint64) string {
 ````
 执行以上代码的输出结果为：
 ````go
-nonce:  b34b026032e411ec90f27085c2b700ea
+nonce:  4b777a1a42bb11ecbaab7085c2b700ea
 walletAddress:  ccb98929a6d118d51224f6451f8cbe599e9343be
 assetSymbol:  TSC1
 quantityInPips:  10000.00000000
 autoDispatchEnabled:  01
-Hash:  0xcf0e61ed8d8bb124eb9d04bcea9ff9aa3e4371db97249d4d30cd241601226ef5
-prefixedHash:  0x9baa1970f4511e68724e57eb91998b61bd58623d085bf8752e1fc8511e708c34
-Signature:  b93b442eeda2f80bff83009b982fc780f84ecae2b8e186cf2b4e7a01a60baaa233233da73226996c13af7ed31700beb15c1020559b26fd86751d1871be5e6fc01b
+Hash:  0x3dc38588689dc8b743eaa5bb40e1448a51a8e077e840b02ac1722c4b3962ebe2
+prefixedHash:  0x8f26d7cad4f5adbe3ec671fb383992fe66d6789c9ff66f78bc32c38dccc2cf7d
+Signature:  3e59f19ce50363b7cae660f76794d1760f85e4188aeea8c190c9217c01cc4c7d4e674249ab0c87ddc980d81cd267fa6e0736351e0c6bc496e68b9c0680cb51871b
 ````
 
 最后使用Dispatcher账号发起提现交易，在remix的方法参数中结构体类型使用数组形式表示，下边我们根据`Withdrawal`结构体中的参数顺序进行构造：
 ````javascript
-[0,"0xb34b026032e411ec90f27085c2b700ea","0xcCB98929A6D118d51224F6451F8CBE599E9343BE","TSC1","0x0000000000000000000000000000000000000000",1000000000000,5000000000,true,"0xb93b442eeda2f80bff83009b982fc780f84ecae2b8e186cf2b4e7a01a60baaa233233da73226996c13af7ed31700beb15c1020559b26fd86751d1871be5e6fc01b"]
+[0,"0x4b777a1a42bb11ecbaab7085c2b700ea","0xcCB98929A6D118d51224F6451F8CBE599E9343BE","TSC1","0x0000000000000000000000000000000000000000",1000000000000,5000000000,true,"0x3e59f19ce50363b7cae660f76794d1760f85e4188aeea8c190c9217c01cc4c7d4e674249ab0c87ddc980d81cd267fa6e0736351e0c6bc496e68b9c0680cb51871b"]
 ````
 使用该参数执行`withdraw`方法，成功后查看测试钱包1在Exchange合约内的TSC1余额，可以发现减少了10000TSC1，变为90000TSC1，内部形式为9000000000000，手续费账号的TSC1余额由0变为5000000000，结果符合构建的提现参数。
 ***
 ## **10. 交易结算**
-交易结算操作需要由Dispatcher账号发起，调用Exchange合约的`executeTrade`方法，f方法参数有三个，分别为买方订单buy、卖方订单sell和交易信息trade。其中buy和sell的类型是`Order`结构体，trade的类型是`Trade`结构体，定义如下：
+交易结算操作需要由Dispatcher账号发起，调用Exchange合约的`executeTrade`方法，方法参数有三个，分别为买方订单buy、卖方订单sell和交易信息trade。其中buy和sell的类型是`Order`结构体，trade的类型是`Trade`结构体，定义如下：
 ````javascript
 //订单结构体，保存用户单次挂单中的全部信息
 struct Order {
@@ -389,7 +389,7 @@ func main() {
 以上代码的执行结果为：
 ````go
 signatureHashVersion:  01
-nonce:  0053beb332ee11ecaf047085c2b700ea
+nonce:  10b6bebb42bc11ec9a717085c2b700ea
 walletAddress:  ccb98929a6d118d51224f6451f8cbe599e9343be
 marketSymbol:  TSC1-BNB
 orderType:  01
@@ -401,13 +401,13 @@ clientOrderId:
 timeInForde:  00
 selfTradePrevention:  03
 cancelAfter:  0000000000000000
-Hash:  0x0c8c0fda83e8da0a6dd733b5b3a240a525a4329ae3c12e54e77ad7ca85af2dc8
-prefixedHash:  0x8aaf93beed17a6e42d3049e696ce71bb28361b24cb638c787c3173e0749b5ae2
-Signature:  fca98b3f12230628e5247725a068772b6725d35947075a02ddfcd5b5e2feb17e7960b2d14ac5bb2fd15066d5576d691a7f378f3b042c8e45dd33b9b2a8b0d0c01b
+Hash:  0x1752a3c3314f96d0f193d567958f32089ddea3af88cd591baca4e8d3c2450e9a
+prefixedHash:  0x90adeb9c4b95e54e522e60ff17b595d2d3df634cf4d23001d7d6f3f0a677ef28
+Signature:  952d568dbeedb70907350c43daf5b12100bf080501c7d40cdf19a708da9abccd1e90921100696c2dcb38de192179f92a6dcca0db2d084d2ba73824b705f999fb1c
 ````
 在remix的方法参数中结构体类型使用数组形式表示，下边根据`Order`结构体中的参数顺序构造买单参数：
 ````javascript
-[1,"0x0053beb332ee11ecaf047085c2b700ea","0xcCB98929A6D118d51224F6451F8CBE599E9343BE",1,0,10000000000,false,30000,0,"",0,3,0,"0xfca98b3f12230628e5247725a068772b6725d35947075a02ddfcd5b5e2feb17e7960b2d14ac5bb2fd15066d5576d691a7f378f3b042c8e45dd33b9b2a8b0d0c01b"]
+[1,"0x10b6bebb42bc11ec9a717085c2b700ea","0xcCB98929A6D118d51224F6451F8CBE599E9343BE",1,0,10000000000,false,30000,0,"",0,3,0,"0x952d568dbeedb70907350c43daf5b12100bf080501c7d40cdf19a708da9abccd1e90921100696c2dcb38de192179f92a6dcca0db2d084d2ba73824b705f999fb1c"]
 ````
 接下来构造卖单：
 > signatureHashVersion: 签名版本号，目前固定为1  
@@ -415,7 +415,7 @@ Signature:  fca98b3f12230628e5247725a068772b6725d35947075a02ddfcd5b5e2feb17e7960
 > walletAddress: 挂卖单的钱包地址，此处为测试钱包2的地址0x11b5A8efFa4E05EF833C8b987bc0c3336eF81eEf  
 > orderType: 订单类型，此处为1（限价单）  
 > side: 交易方向，此处为1（卖单）  
-> quantityInPips: 挂单数量，此处为15000000000  
+> quantityInPips: 挂单数量，此处为15000000000
 > isQuantityInQuote: quantityInPips是否为计价通证数量，此处为false  
 > limitPriceInPips: 订单价格，此处为30000  
 > stopPriceInPips: 止损订单价格，此处为0  
@@ -428,7 +428,7 @@ Signature:  fca98b3f12230628e5247725a068772b6725d35947075a02ddfcd5b5e2feb17e7960
 修改上边代码中的参数，然后执行代码生成签名，输出为：
 ````go
 signatureHashVersion:  01
-nonce:  7787322332ee11ecab6e7085c2b700ea
+nonce:  7f59f51b42bc11ecaa4b7085c2b700ea
 walletAddress:  11b5a8effa4e05ef833c8b987bc0c3336ef81eef
 marketSymbol:  TSC1-BNB
 orderType:  01
@@ -440,13 +440,13 @@ clientOrderId:
 timeInForde:  00
 selfTradePrevention:  03
 cancelAfter:  0000000000000000
-Hash:  0xd0833d69a094a52f34e6710587227e3cc7c71415a705f7eceafabee6b990d9f0
-prefixedHash:  0x99574153e291c7a1a565fcf8d1fdaaaecc642fe9fd638f67ea7306f6c0059255
-Signature:  4c0bc968ea30cf6c968140e20e1d19a109cc3746e0b67ed306084a65ef1e19bc503d24d7f48359462057676b61b1d54fd0101be1e91c2a508420bea01027304c1c
+Hash:  0x12d6995500a0ebf91ddddc1e3075b108130556901f57ce37e6c761ddbebb9fa0
+prefixedHash:  0x880700f71204c8fda6ccc4dac4d1d4a6340cf635f9367f2f652f19ad65e39440
+Signature:  d88210e48b508199b6d7f5ecdb14946213d659a3a69713f61632752c05e62d7a2c5d33165c4d642b9dfd6b3260e063b19f04055ce400d8e1fd66a006dafeaa821c
 ````
 接下来用生成的参数按顺序构造卖单参数：
 ````javascript
-[1,"0x7787322332ee11ecab6e7085c2b700ea","0x11b5A8efFa4E05EF833C8b987bc0c3336eF81eEf",1,1,15000000000,false,30000,0,"",0,3,0,"0x4c0bc968ea30cf6c968140e20e1d19a109cc3746e0b67ed306084a65ef1e19bc503d24d7f48359462057676b61b1d54fd0101be1e91c2a508420bea01027304c1c"]
+[1,"0x7f59f51b42bc11ecaa4b7085c2b700ea","0x11b5A8efFa4E05EF833C8b987bc0c3336eF81eEf",1,1,15000000000,false,30000,0,"",0,3,0,"0xd88210e48b508199b6d7f5ecdb14946213d659a3a69713f61632752c05e62d7a2c5d33165c4d642b9dfd6b3260e063b19f04055ce400d8e1fd66a006dafeaa821c"]
 ````
 最后构造Trade参数：
 > baseAssetSymbol: 基础通证标识符，此处为TSC1  
@@ -492,7 +492,7 @@ Signature:  4c0bc968ea30cf6c968140e20e1d19a109cc3746e0b67ed306084a65ef1e19bc503d
 注意，由于市价单的limitPriceInPips参数为0，计算Hash时需要去掉该参数，执行代码得到输出为：
 ````go
 signatureHashVersion:  01
-nonce:  70e4c312330511eca20b7085c2b700ea
+nonce:  2556d39442bd11ecabcb7085c2b700ea
 walletAddress:  ccb98929a6d118d51224f6451f8cbe599e9343be
 marketSymbol:  TSC1-BNB
 orderType:  00
@@ -504,17 +504,17 @@ clientOrderId:
 timeInForde:  00
 selfTradePrevention:  03
 cancelAfter:  0000000000000000
-Hash:  0x97aa400907128ffbb001ebf2879ee8f9204e20207bd5d781a162405eda58f45b
-prefixedHash:  0x3ceb1d02de7cbb434a889b53ee88342aafe00206d9f6457f68c484b89c013b24
-Signature:  17cd424a5e15c648968695e2171fa794ab0eaffbc3549a1180efe91dc6d9861b50c9bb5ba6fcf83096de0ab6fbdbb5c05342165ca9386a1bddb45d66f182bfd71b
+Hash:  0x7e4173b8cf658bf032ccf289eeb14b38aaf8658e65598507dc59edc7fec9eccc
+prefixedHash:  0xfbff17e4a5b23210d0b3961058077dfef3357e561adbeebd3c300397d8075364
+Signature:  bc931b692ab3de0b05ac44b4aa12fe62bd8c99d46539cf773235cc8aa79644960c336beab6062e7398caade0166796c4a6fdc040d5bd7056cebc2d617cbf25f81b
 ````
 用生成的参数按顺序构造买单参数：
 ````javascript
-[1,"0x70e4c312330511eca20b7085c2b700ea","0xcCB98929A6D118d51224F6451F8CBE599E9343BE",0,0,2000000,true,0,0,"",0,3,0,"0x17cd424a5e15c648968695e2171fa794ab0eaffbc3549a1180efe91dc6d9861b50c9bb5ba6fcf83096de0ab6fbdbb5c05342165ca9386a1bddb45d66f182bfd71b"]
+[1,"0x2556d39442bd11ecabcb7085c2b700ea","0xcCB98929A6D118d51224F6451F8CBE599E9343BE",0,0,2000000,true,0,0,"",0,3,0,"0xbc931b692ab3de0b05ac44b4aa12fe62bd8c99d46539cf773235cc8aa79644960c336beab6062e7398caade0166796c4a6fdc040d5bd7056cebc2d617cbf25f81b"]
 ````
 由于本次撮合的是新的买单和上一笔卖单，因此仍然使用上一次的卖单参数：
 ````javascript
-[1,"0x7787322332ee11ecab6e7085c2b700ea","0x11b5A8efFa4E05EF833C8b987bc0c3336eF81eEf",1,1,15000000000,false,30000,0,"",0,3,0,"0x4c0bc968ea30cf6c968140e20e1d19a109cc3746e0b67ed306084a65ef1e19bc503d24d7f48359462057676b61b1d54fd0101be1e91c2a508420bea01027304c1c"]
+[1,"0x7f59f51b42bc11ecaa4b7085c2b700ea","0x11b5A8efFa4E05EF833C8b987bc0c3336eF81eEf",1,1,15000000000,false,30000,0,"",0,3,0,"0xd88210e48b508199b6d7f5ecdb14946213d659a3a69713f61632752c05e62d7a2c5d33165c4d642b9dfd6b3260e063b19f04055ce400d8e1fd66a006dafeaa821c"]
 ````
 最后构造`Trade`结构体，由于本次的卖单为挂单，买单为吃单，注意结构体中相关参数的变化，比如makerFeeAssetAddress、takerFeeAssetAddress、makerSide等参数：
 > baseAssetSymbol: 基础通证标识符，此处为TSC1  
@@ -541,10 +541,23 @@ Signature:  17cd424a5e15c648968695e2171fa794ab0eaffbc3549a1180efe91dc6d9861b50c9
 
 由于此时的市价买单没有全部完成，可以使用`loadPartiallyFilledOrderQuantityInPips`方法查询已匹配成功的数额，参数为该买单的订单哈希值0x97aa400907128ffbb001ebf2879ee8f9204e20207bd5d781a162405eda58f45b，可以看到已完成的数额为1500000，与交易参数一致。
 ***
-## **11. 取消订单执行**
+
+## **11. 批量交易结算**
+通过调用Exchange合约的`executeTrades`方法可以批量进行交易结算，方法参数有三个，分别为买方订单数组buys、卖方订单数组sells和交易信息数组trades。其中buys和sells的类型是`Order`结构体数组，trades的类型是`Trade`结构体数组，注意各数组的参数顺序要匹配正确。执行成功后，事务会发出一个`TradesExecuted`类型的事件，其中包含了`ExecRet`类型的数组，数组中每一个`ExecRet`类型的对象都包含了对应索引的结算操作是否成功，以及失败原因，可通过监听该事件来跟踪每一笔结算的执行结果。`ExecRet`结构体定义如下：
+````javascript
+//executeTrades中的执行结果
+struct ExecRet {
+    //对应索引的结算操作是否成功
+    bool success;
+    //如果执行失败，该变量中保存失败信息
+    string err;
+}
+````
+
+## **12. 取消订单执行**
 由用户钱包调用Exchange合约的`invalidateOrderNonce`方法，并提供一个UUIDv1作为参数，当执行成功并经过`chainPropagationPeriod`指定的块数后，该账号所有订单时间戳小于UUIDv1所包含时间戳的未上链订单会在`executeTrade`方法执行时被阻止。
 ***
-## **12. 用户钱包退出**
+## **13. 用户钱包退出**
 当用户想退出交易所时可以按以下步骤执行：
 
 a. 用户钱包调用Exchange合约的`exitWallet`方法（无参数），该方法会在调用成功后会立刻阻止用户入金操作（仍可进行出金和订单结算操作），在经过chainPropagationPeriod参数指定的块数确认后，届时该账号的出入金和订单结算操作都会被阻止。可通过`isWalletExit`和`isWalletExitFinalized`两个方法查询退出状态，参数均为要查询的钱包地址。

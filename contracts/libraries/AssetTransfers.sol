@@ -25,7 +25,7 @@ library AssetTransfers {
     address wallet,
     IBEP20 tokenAddress,
     uint256 quantityInAssetUnits
-  ) internal {
+  ) external {
     uint256 balanceBefore = tokenAddress.balanceOf(address(this));
 
     // Because we check for the expected balance change we can safely ignore the return value of transferFrom
@@ -34,7 +34,7 @@ library AssetTransfers {
     uint256 balanceAfter = tokenAddress.balanceOf(address(this));
     require(
       balanceAfter.sub(balanceBefore) == quantityInAssetUnits,
-      'Unexpected balance change'
+      'balance do not match'
     );
   }
 
@@ -46,7 +46,7 @@ library AssetTransfers {
     address payable walletOrContract,
     address asset,
     uint256 quantityInAssetUnits
-  ) internal {
+  ) external {
     if (asset == address(0x0)) {
       require(
         walletOrContract.send(quantityInAssetUnits),
@@ -61,7 +61,7 @@ library AssetTransfers {
       uint256 balanceAfter = IBEP20(asset).balanceOf(walletOrContract);
       require(
         balanceAfter.sub(balanceBefore) == quantityInAssetUnits,
-        'Unexpected balance change'
+        'balance do not match'
       );
     }
   }

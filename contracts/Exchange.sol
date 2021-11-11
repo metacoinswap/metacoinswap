@@ -115,6 +115,10 @@ contract Exchange is IExchange, Owned {
     bytes32 sellOrderHash
   );
   /**
+   * @notice Emitted when the Dispatcher Wallet submits trades for execution with `executeTrades`
+   */
+  event TradesExecuted(Structs.ExecRet[] vals);
+  /**
    * @notice Emitted when a user invokes the Exit Wallet mechanism with `exitWallet`
    */
   event WalletExited(address indexed wallet, uint256 effectiveBlockNumber);
@@ -152,6 +156,7 @@ contract Exchange is IExchange, Owned {
     uint64 timestampInMs;
     uint256 effectiveBlockNumber;
   }
+
   struct WalletExit {
     bool exists;
     uint256 effectiveBlockNumber;
@@ -203,7 +208,7 @@ contract Exchange is IExchange, Owned {
    * contract's address
    */
   function setCustodian(address payable newCustodian) external onlyAdmin {
-    require(_custodian == address(0x0), 'Can only be set once');
+    require(_custodian == address(0x0), 'already set');
     require(Address.isContract(newCustodian), 'Invalid address');
 
     _custodian = newCustodian;
@@ -224,7 +229,7 @@ contract Exchange is IExchange, Owned {
   {
     require(
       newChainPropagationPeriod < _maxChainPropagationPeriod,
-      'Must be less than 1 week'
+      'Bigger than 1 week'
     );
 
     uint256 oldChainPropagationPeriod = _chainPropagationPeriod;
@@ -244,10 +249,10 @@ contract Exchange is IExchange, Owned {
    * @param newFeeWallet The new Fee wallet. Must be different from the current one
    */
   function setFeeWallet(address newFeeWallet) external onlyAdmin {
-    require(newFeeWallet != address(0x0), 'Invalid wallet address');
+    require(newFeeWallet != address(0x0), 'Invalid address');
     require(
       newFeeWallet != _feeWallet,
-      'Must be different from current fee wallet'
+      'Same fee wallet'
     );
 
     address oldFeeWallet = _feeWallet;
@@ -527,11 +532,11 @@ contract Exchange is IExchange, Owned {
     if (_nonceInvalidations[msg.sender].exists) {
       require(
         _nonceInvalidations[msg.sender].timestampInMs < timestampInMs,
-        'Nonce already invalidated'
+        'Already invalidated'
       );
       require(
         _nonceInvalidations[msg.sender].effectiveBlockNumber <= block.number,
-        'Previous invalidation awaiting chain propagation'
+        'Awaiting propagation'
       );
     }
 
@@ -663,7 +668,7 @@ contract Exchange is IExchange, Owned {
       asset.decimals
     );
 
-    require(balanceInAssetUnits > 0, 'Balance for asset');
+    require(balanceInAssetUnits > 0, 'Balance for asset is 0');
     _balancesInPips[msg.sender].remove(assetAddress);
     ICustodian(_custodian).withdraw(
       payable(msg.sender),
@@ -761,6 +766,54 @@ contract Exchange is IExchange, Owned {
 
   // Trades //
 
+  /**
+   * @notice Execute multiple trades
+   *
+   * @param buys A `Structs.Order` struct array encoding the parameters of the buy-side orders (receiving base, giving quote)
+   * @param sells A `Structs.Order` struct array encoding the parameters of the sell-side order (giving base, receiving quote)
+   * @param trades A `Structs.Trade` struct array encoding the parameters of this trade execution of the counterparty orders
+   */
+  function executeTrades(
+    Structs.Order[] memory buys,
+    Structs.Order[] memory sells,
+    Structs.Trade[] memory trades
+  ) public override onlyDispatcher {
+    require(
+      buys.length==sells.length && sells.length==trades.length,
+      "length do not match"
+    );
+    require(
+      buys.length!=0,
+      "length is zero"
+    );
+    Structs.ExecRet[] memory rets = new Structs.ExecRet[](buys.length);
+    for (uint i = 0; i < buys.length; i++) {
+      (bool success, bytes memory data) = address(this).delegatecall(
+        abi.encodeWithSignature("executeTrade((uint8,uint128,address,uint8,uint8,uint64,bool,uint64,uint64,string,uint8,uint8,uint64,bytes),(uint8,uint128,address,uint8,uint8,uint64,bool,uint64,uint64,string,uint8,uint8,uint64,bytes),(string,string,address,address,uint64,uint64,uint64,uint64,address,address,uint64,uint64,uint64,uint8))", buys[i], sells[i], trades[i])
+      );
+      if (success) {
+        rets[i] = Structs.ExecRet(true, "");
+      } else {
+        rets[i] = Structs.ExecRet(false, extractRevertReason(data));
+      }
+    }
+    emit TradesExecuted(rets);
+  }
+
+  function extractRevertReason (bytes memory revertData) internal pure returns (string memory reason) {
+      uint l = revertData.length;
+      if (l < 68) return "Silently reverted";
+      uint t;
+      assembly {
+          revertData := add (revertData, 4)
+          t := mload (revertData) // Save the content of the length slot
+          mstore (revertData, sub (l, 4)) // Set proper length
+      }
+      reason = abi.decode (revertData, (string));
+      assembly {
+          mstore (revertData, t) // Restore the content of the length slot
+      }
+  }
   /**
    * @notice Settles a trade between two orders submitted and matched off-chain
    *
@@ -921,7 +974,7 @@ contract Exchange is IExchange, Owned {
     if (order.isQuantityInQuote) {
       require(
         isMarketOrderType(order.orderType),
-        'Only valid for market orders'
+        'Not market orders'
       );
       newFilledQuantityInPips = trade.grossQuoteQuantityInPips.add(
         _partiallyFilledOrderQuantitiesInPips[orderHash]
@@ -958,7 +1011,7 @@ contract Exchange is IExchange, Owned {
   ) private view {
     require(
       trade.baseAssetAddress != trade.quoteAssetAddress,
-      'Base and quote assets must be different'
+      'Base/quote assets must be different'
     );
 
     // Buy order market pair
@@ -973,7 +1026,7 @@ contract Exchange is IExchange, Owned {
     require(
       buyBaseAsset.assetAddress == trade.baseAssetAddress &&
         buyQuoteAsset.assetAddress == trade.quoteAssetAddress,
-      'Buy order market symbol resolution mismatch'
+      'Buy order symbol do not match'
     );
 
     // Sell order market pair
@@ -988,7 +1041,7 @@ contract Exchange is IExchange, Owned {
     require(
       sellBaseAsset.assetAddress == trade.baseAssetAddress &&
         sellQuoteAsset.assetAddress == trade.quoteAssetAddress,
-      'Sell order market symbol resolution mismatch'
+      'Sell order symbol do not match'
     );
 
     // Fee asset validation
@@ -1004,7 +1057,7 @@ contract Exchange is IExchange, Owned {
     );
     require(
       trade.makerFeeAssetAddress != trade.takerFeeAssetAddress,
-      'Maker and taker fee assets must be different'
+      'Maker/taker fee assets must be different'
     );
   }
 
@@ -1015,11 +1068,11 @@ contract Exchange is IExchange, Owned {
   ) private pure {
     require(
       trade.grossBaseQuantityInPips > 0,
-      'Base quantity is zero'
+      'Base quantity is 0'
     );
     require(
       trade.grossQuoteQuantityInPips > 0,
-      'Quote quantity is zero'
+      'Quote quantity is 0'
     );
 
     if (isLimitOrderType(buy.orderType)) {
@@ -1028,7 +1081,7 @@ contract Exchange is IExchange, Owned {
           trade.grossBaseQuantityInPips,
           buy.limitPriceInPips
         ) >= trade.grossQuoteQuantityInPips,
-        'Buy order limit price exceeded'
+        'Buy limit price exceeded'
       );
     }
 
@@ -1038,7 +1091,7 @@ contract Exchange is IExchange, Owned {
           trade.grossBaseQuantityInPips,
           sell.limitPriceInPips
         ) <= trade.grossQuoteQuantityInPips,
-        'Sell order limit price exceeded'
+        'Sell limit price exceeded'
       );
     }
   }
@@ -1114,8 +1167,8 @@ contract Exchange is IExchange, Owned {
         order.walletAddress
       ),
       order.side == Enums.OrderSide.Buy
-        ? 'Invalid signature for buy order'
-        : 'Invalid signature for sell order'
+        ? 'Invalid buy order signature'
+        : 'Invalid sell order signature'
     );
 
     return orderHash;
@@ -1234,10 +1287,10 @@ contract Exchange is IExchange, Owned {
    * @param newDispatcherWallet The new whitelisted dispatcher wallet. Must be different from the current one
    */
   function setDispatcher(address newDispatcherWallet) external onlyAdmin {
-    require(newDispatcherWallet != address(0x0), 'Invalid wallet address');
+    require(newDispatcherWallet != address(0x0), 'Invalid address');
     require(
       newDispatcherWallet != _dispatcherWallet,
-      'Must be different address'
+      'Same address'
     );
     address oldDispatcherWallet = _dispatcherWallet;
     _dispatcherWallet = newDispatcherWallet;
@@ -1255,7 +1308,7 @@ contract Exchange is IExchange, Owned {
   }
 
   modifier onlyDispatcher() {
-    require(msg.sender == _dispatcherWallet, 'Caller is not dispatcher');
+    require(msg.sender == _dispatcherWallet, 'Must be dispatcher');
     _;
   }
 
@@ -1311,7 +1364,7 @@ contract Exchange is IExchange, Owned {
       .div(pipsMultiplier);
     require(
       impliedQuoteQuantityInPips < 2**64,
-      'Implied quote pip quantity overflows uint64'
+      'Implied quantity overflows'
     );
 
     return uint64(impliedQuoteQuantityInPips);

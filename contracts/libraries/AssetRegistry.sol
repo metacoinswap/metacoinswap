@@ -23,8 +23,8 @@ library AssetRegistry {
     IBEP20 tokenAddress,
     string memory symbol,
     uint8 decimals
-  ) internal {
-    require(decimals <= 32, 'Cannot have more than 32 decimals');
+  ) external {
+    require(decimals <= 32, 'More than 32 decimals');
     require(
       tokenAddress != IBEP20(address(0x0)) && Address.isContract(address(tokenAddress)),
       'Invalid address'
@@ -33,7 +33,7 @@ library AssetRegistry {
     require(bytes(symbol).length > 0, 'Invalid symbol');
     require(
       !self.assetsByAddress[address(tokenAddress)].isConfirmed,
-      'Token already finalized'
+      'Aready finalized'
     );
 
     self.assetsByAddress[address(tokenAddress)] = Structs.Asset({
@@ -51,10 +51,10 @@ library AssetRegistry {
     IBEP20 tokenAddress,
     string memory symbol,
     uint8 decimals
-  ) internal {
+  ) external {
     Structs.Asset memory asset = self.assetsByAddress[address(tokenAddress)];
     require(asset.exists, 'Unknown token');
-    require(!asset.isConfirmed, 'Token already finalized');
+    require(!asset.isConfirmed, 'Already finalized');
     require(isStringEqual(asset.symbol, symbol), 'Symbols do not match');
     require(asset.decimals == decimals, 'Decimals do not match');
 
@@ -68,13 +68,13 @@ library AssetRegistry {
     Storage storage self,
     IBEP20 tokenAddress,
     string memory symbol
-  ) internal {
+  ) external {
     Structs.Asset memory asset = self.assetsByAddress[address(tokenAddress)];
     require(
       asset.exists && asset.isConfirmed,
-      'Registration  not finalized'
+      'Registration not finalized'
     );
-    require(!isStringEqual(symbol, 'BNB'), 'BNB symbol reserved');
+    require(!isStringEqual(symbol, 'BNB'), 'Reserved symbol');
 
     // This will prevent swapping assets for previously existing orders
     uint64 msInOneSecond = 1000;
@@ -89,7 +89,7 @@ library AssetRegistry {
    * @param assetAddress BNB address of asset
    */
   function loadAssetByAddress(Storage storage self, address assetAddress)
-    internal
+    external
     view
     returns (Structs.Asset memory)
   {
@@ -118,7 +118,7 @@ library AssetRegistry {
     Storage storage self,
     string memory symbol,
     uint64 timestampInMs
-  ) internal view returns (Structs.Asset memory) {
+  ) external view returns (Structs.Asset memory) {
     if (isStringEqual('BNB', symbol)) {
       return getBnbAsset();
     }

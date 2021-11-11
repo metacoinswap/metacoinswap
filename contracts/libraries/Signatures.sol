@@ -27,7 +27,7 @@ library Signatures {
   ) external pure returns (bytes32) {
     require(
       order.signatureHashVersion == 1,
-      'Signature hash version must be 1'
+      'Version must be 1'
     );
     return
       keccak256(

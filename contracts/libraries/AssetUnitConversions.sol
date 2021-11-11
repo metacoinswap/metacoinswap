@@ -18,7 +18,7 @@ library AssetUnitConversions {
     pure
     returns (uint256)
   {
-    require(assetDecimals <= 32, 'Asset cannot have more than 32 decimals');
+    require(assetDecimals <= 32, 'More than 32 decimals');
 
     // Exponents cannot be negative, so divide or multiply based on exponent signedness
     if (assetDecimals > 8) {
@@ -32,7 +32,7 @@ library AssetUnitConversions {
     pure
     returns (uint64)
   {
-    require(assetDecimals <= 32, 'Asset cannot have more than 32 decimals');
+    require(assetDecimals <= 32, 'More than 32 decimals');
 
     uint256 quantityInPips;
     // Exponents cannot be negative, so divide or multiply based on exponent signedness
@@ -45,7 +45,7 @@ library AssetUnitConversions {
         uint256(10)**(8 - assetDecimals)
       );
     }
-    require(quantityInPips < 2**64, 'Pip quantity overflows uint64');
+    require(quantityInPips < 2**64, 'Pip quantity overflows');
 
     return uint64(quantityInPips);
   }

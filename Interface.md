@@ -180,7 +180,7 @@
 > 参数: 
 > - buy: `Structs.Order`结构体，买方订单，各字段定义参考结构体说明一节  
 > - sell: `Structs.Order`结构体，卖方订单，各字段定义参考结构体说明一节  
-> trade: `Structs.Trade`结构体，表示撮合成功的一对订单的相关信息，各字段定义参考结构体说明一节  
+> - trade: `Structs.Trade`结构体，表示撮合成功的一对订单的相关信息，各字段定义参考结构体说明一节  
 > 
 > Payable: false  
 > 成功条件:
@@ -201,6 +201,23 @@
 > - 每笔订单被撮合成功的总额度不能超过挂单的金额  
 > 
 > 事件: `event TradeExecuted(address buyWallet, address sellWallet, string indexed baseAssetSymbolIndex, string indexed quoteAssetSymbolIndex, string baseAssetSymbol, string quoteAssetSymbol, uint64 baseQuantityInPips, uint64 quoteQuantityInPips, uint64 tradePriceInPips, bytes32 buyOrderHash, bytes32 sellOrderHash)`
+***
+
+### **function executeTrades(Structs.Order[] memory buys, Structs.Order[] memory sells, Structs.Trade[] memory trades) public override onlyDispatcher**
+> 功能: 由用户钱包发起并签名的多个订单，在撮合成功后交由Dispatcher账号调用`executeTrades`方法将数据批量上链，届时相关账户的余额会根据交易信息发生相应变化  
+> 调用方: Dispatcher账号  
+> 参数: 
+> - buys: `Structs.Order`结构体数组，买方订单数组  
+> - sells: `Structs.Order`结构体数组，卖方订单数组  
+> - trades: `Structs.Trade`结构体数组，撮合信息数组  
+> 
+> Payable: false  
+> 成功条件:
+> - buys、sells和trades的长度相等   
+> 
+> 事件: 
+> - `event TradeExecuted(address buyWallet, address sellWallet, string indexed baseAssetSymbolIndex, string indexed quoteAssetSymbolIndex, string baseAssetSymbol, string quoteAssetSymbol, uint64 baseQuantityInPips, uint64 quoteQuantityInPips, uint64 tradePriceInPips, bytes32 buyOrderHash, bytes32 sellOrderHash)`
+> - `event TradesExecuted(Structs.ExecRet[] vals)`
 ***
 ## **6. 取消订单执行**
 ### **function invalidateOrderNonce(uint128 nonce) external**
@@ -446,6 +463,16 @@ struct Trade {
     Enums.OrderSide makerSide;
 }
 ````
+e. ExecRet结构体
+````javascript
+//executeTrades中的执行结果
+struct ExecRet {
+    //对应索引的结算操作是否成功
+    bool success;
+    //如果执行失败，该变量中保存失败信息
+    string err;
+}
+````
 ***
 ## **10. 事件说明**
 a. DispatcherChanged
@@ -521,13 +548,18 @@ i. TradeExecuted
 > - bytes32 buyOrderHash: 买单的哈希值
 > - bytes32 sellOrderHash: 卖单的哈希值
 ***
-j. WalletExited
+j. TradesExecuted
+> 说明: 批量交易结算事件，当Dispatcher账号调用`executeTrades`方法时发出该事件  
+> 参数: 
+> - Structs.ExecRet[] vals: 数组包含每一笔结算的执行结果，参考`ExecRet`结构体的说明
+***
+k. WalletExited
 > 说明: 用户钱包退出事件，当用户钱包调用`exitWallet`方法退出交易所后发出该事件  
 > 参数:  
 > - address indexed wallet: 要退出的钱包地址  
 > - uint256 effectiveBlockNumber: 退出操作生效时的块序号
 ***
-k. WalletExitWithdrawn
+l. WalletExitWithdrawn
 > 说明: 当用户钱包通过`withdrawExit`方法提现通证余额成功后发出该事件  
 > 参数:  
 > - address indexed wallet: 发起提现操作的钱包地址  
@@ -537,12 +569,12 @@ k. WalletExitWithdrawn
 > - uint64 newExchangeBalanceInPips: 提现后交易所内该通证的余额，使用Exchange合约的内部精度表示
 > - uint256 newExchangeBalanceInAssetUnits: 提现后交易所内该通证的余额，使用该通证合约的精度表示
 ***
-l. WalletExitCleared
+m. WalletExitCleared
 > 说明: 当用户钱包调用`exitWallet`方法成功后发出该事件  
 > 参数:  
 > - address indexed wallet: 要清除退出状态的钱包地址  
 ***
-m. Withdrawn
+n. Withdrawn
 > 说明: 当Dispatcher账号调用`withdraw`方法成功后发出该事件  
 > 参数:  
 > - address indexed wallet: 发起提现操作的钱包地址  
