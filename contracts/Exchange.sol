@@ -276,7 +276,7 @@ contract Exchange is IExchange, Owned {
     address wallet,
     address assetAddress
   ) external view returns (uint256) {
-    require(wallet != address(0x0), 'Invalid wallet address');
+    require(wallet != address(0x0), 'Invalid address');
 
     Structs.Asset memory asset = _assetRegistry.loadAssetByAddress(
       assetAddress
@@ -301,7 +301,7 @@ contract Exchange is IExchange, Owned {
     address wallet,
     string calldata assetSymbol
   ) external view returns (uint256) {
-    require(wallet != address(0x0), 'Invalid wallet address');
+    require(wallet != address(0x0), 'Invalid address');
 
     Structs.Asset memory asset = _assetRegistry.loadAssetBySymbol(
       assetSymbol,
@@ -327,7 +327,7 @@ contract Exchange is IExchange, Owned {
     view
     returns (uint64)
   {
-    require(wallet != address(0x0), 'Invalid wallet address');
+    require(wallet != address(0x0), 'Invalid address');
 
     return _balancesInPips[wallet].get(assetAddress);
   }
@@ -344,7 +344,7 @@ contract Exchange is IExchange, Owned {
     address wallet,
     string calldata assetSymbol
   ) external view returns (uint64) {
-    require(wallet != address(0x0), 'Invalid wallet address');
+    require(wallet != address(0x0), 'Invalid address');
 
     address assetAddress = _assetRegistry
       .loadAssetBySymbol(assetSymbol, getCurrentTimestampInMs())
@@ -401,6 +401,7 @@ contract Exchange is IExchange, Owned {
    * @notice Deposit BNB
    */
   function depositBNB() external payable {
+    require(msg.value%uint256(10000000000)==0, "dust value");
     deposit(msg.sender, address(0x0), msg.value);
   }
 
@@ -417,7 +418,7 @@ contract Exchange is IExchange, Owned {
   ) external {
     require(
       address(tokenAddress) != address(0x0),
-      'Use depositBNB'
+      'Invalid address'
     );
     deposit(msg.sender, address(tokenAddress), quantityInAssetUnits);
   }
@@ -440,7 +441,7 @@ contract Exchange is IExchange, Owned {
     );
     require(
       address(tokenAddress) != address(0x0),
-      'Use depositBNB'
+      'Invalid address'
     );
 
     deposit(msg.sender, address(tokenAddress), quantityInAssetUnits);
@@ -532,7 +533,7 @@ contract Exchange is IExchange, Owned {
     if (_nonceInvalidations[msg.sender].exists) {
       require(
         _nonceInvalidations[msg.sender].timestampInMs < timestampInMs,
-        'Already invalidated'
+        'Invalidated'
       );
       require(
         _nonceInvalidations[msg.sender].effectiveBlockNumber <= block.number,
@@ -578,7 +579,7 @@ contract Exchange is IExchange, Owned {
     bytes32 withdrawalHash = validateWithdrawalSignature(withdrawal);
     require(
       !_completedWithdrawalHashes[withdrawalHash],
-      'Already withdrawn'
+      'Withdrawn'
     );
 
     // If withdrawal is by asset symbol (most common) then resolve to asset address
@@ -668,7 +669,7 @@ contract Exchange is IExchange, Owned {
       asset.decimals
     );
 
-    require(balanceInAssetUnits > 0, 'Balance for asset is 0');
+    require(balanceInAssetUnits > 0, 'Balance is 0');
     _balancesInPips[msg.sender].remove(assetAddress);
     ICustodian(_custodian).withdraw(
       payable(msg.sender),
@@ -777,10 +778,10 @@ contract Exchange is IExchange, Owned {
     Structs.Order[] memory buys,
     Structs.Order[] memory sells,
     Structs.Trade[] memory trades
-  ) public override onlyDispatcher {
+  ) external override onlyDispatcher {
     require(
       buys.length==sells.length && sells.length==trades.length,
-      "length do not match"
+      "length mismatch"
     );
     require(
       buys.length!=0,
@@ -1026,7 +1027,7 @@ contract Exchange is IExchange, Owned {
     require(
       buyBaseAsset.assetAddress == trade.baseAssetAddress &&
         buyQuoteAsset.assetAddress == trade.quoteAssetAddress,
-      'Buy order symbol do not match'
+      'Buy order symbol mismatch'
     );
 
     // Sell order market pair
@@ -1041,7 +1042,7 @@ contract Exchange is IExchange, Owned {
     require(
       sellBaseAsset.assetAddress == trade.baseAssetAddress &&
         sellQuoteAsset.assetAddress == trade.quoteAssetAddress,
-      'Sell order symbol do not match'
+      'Sell order symbol mismatch'
     );
 
     // Fee asset validation

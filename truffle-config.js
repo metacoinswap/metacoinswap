@@ -88,7 +88,7 @@ module.exports = {
       settings: {          // See the solidity docs for advice about optimization and evmVersion
        optimizer: {
          enabled: true,
-         runs: 16
+         runs: 13
        },
        evmVersion: "constantinople"
       }
