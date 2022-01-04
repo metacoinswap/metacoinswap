@@ -60,7 +60,8 @@ contract Exchange is IExchange, Owned {
   /**
    * @notice Emitted when an admin changes the Dispatch Wallet tunable parameter with `setDispatcher`
    */
-  event DispatcherChanged(address previousValue, address newValue);
+  event AddDispatcher(address newValue);
+  event RemoveDispatcher(address value);
 
   /**
    * @notice Emitted when an admin changes the Fee Wallet tunable parameter with `setFeeWallet`
@@ -117,7 +118,7 @@ contract Exchange is IExchange, Owned {
   /**
    * @notice Emitted when the Dispatcher Wallet submits trades for execution with `executeTrades`
    */
-  event TradesExecuted(Structs.ExecRet[] vals);
+  // event TradesExecuted(Structs.ExecRet[] vals);
   /**
    * @notice Emitted when a user invokes the Exit Wallet mechanism with `exitWallet`
    */
@@ -181,7 +182,7 @@ contract Exchange is IExchange, Owned {
   mapping(address => WalletExit) _walletExits;
   // Tunable parameters
   uint256 _chainPropagationPeriod;
-  address _dispatcherWallet;
+  mapping (address => bool) _dispatcherWallet;
   address _feeWallet;
 
   // Constant values //
@@ -787,34 +788,37 @@ contract Exchange is IExchange, Owned {
       buys.length!=0,
       "length is zero"
     );
-    Structs.ExecRet[] memory rets = new Structs.ExecRet[](buys.length);
-    for (uint i = 0; i < buys.length; i++) {
-      (bool success, bytes memory data) = address(this).delegatecall(
-        abi.encodeWithSignature("executeTrade((uint8,uint128,address,uint8,uint8,uint64,bool,uint64,uint64,string,uint8,uint8,uint64,bytes),(uint8,uint128,address,uint8,uint8,uint64,bool,uint64,uint64,string,uint8,uint8,uint64,bytes),(string,string,address,address,uint64,uint64,uint64,uint64,address,address,uint64,uint64,uint64,uint8))", buys[i], sells[i], trades[i])
-      );
-      if (success) {
-        rets[i] = Structs.ExecRet(true, "");
-      } else {
-        rets[i] = Structs.ExecRet(false, extractRevertReason(data));
-      }
+    // Structs.ExecRet[] memory rets = new Structs.ExecRet[](buys.length);
+    // for (uint i = 0; i < buys.length; i++) {
+    //   (bool success, bytes memory data) = address(this).delegatecall(
+    //     abi.encodeWithSignature("executeTrade((uint8,uint128,address,uint8,uint8,uint64,bool,uint64,uint64,string,uint8,uint8,uint64,bytes),(uint8,uint128,address,uint8,uint8,uint64,bool,uint64,uint64,string,uint8,uint8,uint64,bytes),(string,string,address,address,uint64,uint64,uint64,uint64,address,address,uint64,uint64,uint64,uint8))", buys[i], sells[i], trades[i])
+    //   );
+    //   if (success) {
+    //     rets[i] = Structs.ExecRet(true, "");
+    //   } else {
+    //     rets[i] = Structs.ExecRet(false, extractRevertReason(data));
+    //   }
+    // }
+    // emit TradesExecuted(rets);
+    for (uint256 i = 0; i < buys.length; i++) {
+      _executeTrade(buys[i], sells[i], trades[i]);
     }
-    emit TradesExecuted(rets);
   }
 
-  function extractRevertReason (bytes memory revertData) internal pure returns (string memory reason) {
-      uint l = revertData.length;
-      if (l < 68) return "Silently reverted";
-      uint t;
-      assembly {
-          revertData := add (revertData, 4)
-          t := mload (revertData) // Save the content of the length slot
-          mstore (revertData, sub (l, 4)) // Set proper length
-      }
-      reason = abi.decode (revertData, (string));
-      assembly {
-          mstore (revertData, t) // Restore the content of the length slot
-      }
-  }
+  // function extractRevertReason (bytes memory revertData) internal pure returns (string memory reason) {
+  //     uint l = revertData.length;
+  //     if (l < 68) return "Silently reverted";
+  //     uint t;
+  //     assembly {
+  //         revertData := add (revertData, 4)
+  //         t := mload (revertData) // Save the content of the length slot
+  //         mstore (revertData, sub (l, 4)) // Set proper length
+  //     }
+  //     reason = abi.decode (revertData, (string));
+  //     assembly {
+  //         mstore (revertData, t) // Restore the content of the length slot
+  //     }
+  // }
   /**
    * @notice Settles a trade between two orders submitted and matched off-chain
    *
@@ -831,45 +835,7 @@ contract Exchange is IExchange, Owned {
     Structs.Order memory sell,
     Structs.Trade memory trade
   ) public override onlyDispatcher {
-    require(
-      !isWalletExitFinalized(buy.walletAddress),
-      'Buy wallet finalized'
-    );
-    require(
-      !isWalletExitFinalized(sell.walletAddress),
-      'Sell wallet finalized'
-    );
-    require(
-      buy.walletAddress != sell.walletAddress,
-      'Self-trading not allowed'
-    );
-
-    validateAssetPair(buy, sell, trade);
-    validateLimitPrices(buy, sell, trade);
-    validateOrderNonces(buy, sell);
-    (bytes32 buyHash, bytes32 sellHash) = validateOrderSignatures(
-      buy,
-      sell,
-      trade
-    );
-    validateTradeFees(trade);
-
-    updateOrderFilledQuantities(buy, buyHash, sell, sellHash, trade);
-    updateBalancesForTrade(buy, sell, trade);
-
-    emit TradeExecuted(
-      buy.walletAddress,
-      sell.walletAddress,
-      trade.baseAssetSymbol,
-      trade.quoteAssetSymbol,
-      trade.baseAssetSymbol,
-      trade.quoteAssetSymbol,
-      trade.grossBaseQuantityInPips,
-      trade.grossQuoteQuantityInPips,
-      trade.priceInPips,
-      buyHash,
-      sellHash
-    );
+    _executeTrade(buy, sell, trade);
   }
 
   // Updates buyer, seller, and fee wallet balances for both assets in trade pair according to trade parameters
@@ -1287,29 +1253,32 @@ contract Exchange is IExchange, Owned {
    *
    * @param newDispatcherWallet The new whitelisted dispatcher wallet. Must be different from the current one
    */
-  function setDispatcher(address newDispatcherWallet) external onlyAdmin {
+  function addDispatcher(address newDispatcherWallet) external onlyAdmin {
     require(newDispatcherWallet != address(0x0), 'Invalid address');
     require(
-      newDispatcherWallet != _dispatcherWallet,
+      !_dispatcherWallet[newDispatcherWallet],
       'Same address'
     );
-    address oldDispatcherWallet = _dispatcherWallet;
-    _dispatcherWallet = newDispatcherWallet;
+    _dispatcherWallet[newDispatcherWallet] = true;
 
-    emit DispatcherChanged(oldDispatcherWallet, newDispatcherWallet);
+    emit AddDispatcher(newDispatcherWallet);
   }
 
   /**
    * @notice Clears the currently set whitelisted dispatcher wallet, effectively disabling calling the
    * `executeTrade` and `withdraw` functions until a new wallet is set with `setDispatcher`
    */
-  function removeDispatcher() external onlyAdmin {
-    emit DispatcherChanged(_dispatcherWallet, address(0x0));
-    _dispatcherWallet = address(0x0);
+  function removeDispatcher(address account) external onlyAdmin {
+    emit RemoveDispatcher(account);
+    _dispatcherWallet[account] = false;
+  }
+
+  function isDispatcher(address account) external view  returns (bool) {
+    return _dispatcherWallet[account];
   }
 
   modifier onlyDispatcher() {
-    require(msg.sender == _dispatcherWallet, 'Must be dispatcher');
+    require(_dispatcherWallet[msg.sender], 'Must be dispatcher');
     _;
   }
 
@@ -1391,5 +1360,51 @@ contract Exchange is IExchange, Owned {
     uint64 msInOneSecond = 1000;
 
     return (uint64(block.timestamp) + secondsInOneDay) * msInOneSecond;
+  }
+
+  function _executeTrade(
+    Structs.Order memory buy,
+    Structs.Order memory sell,
+    Structs.Trade memory trade
+  ) private {
+    require(
+      !isWalletExitFinalized(buy.walletAddress),
+      'Buy wallet finalized'
+    );
+    require(
+      !isWalletExitFinalized(sell.walletAddress),
+      'Sell wallet finalized'
+    );
+    require(
+      buy.walletAddress != sell.walletAddress,
+      'Self-trading not allowed'
+    );
+
+    validateAssetPair(buy, sell, trade);
+    validateLimitPrices(buy, sell, trade);
+    validateOrderNonces(buy, sell);
+    (bytes32 buyHash, bytes32 sellHash) = validateOrderSignatures(
+      buy,
+      sell,
+      trade
+    );
+    validateTradeFees(trade);
+
+    updateOrderFilledQuantities(buy, buyHash, sell, sellHash, trade);
+    updateBalancesForTrade(buy, sell, trade);
+
+    emit TradeExecuted(
+      buy.walletAddress,
+      sell.walletAddress,
+      trade.baseAssetSymbol,
+      trade.quoteAssetSymbol,
+      trade.baseAssetSymbol,
+      trade.quoteAssetSymbol,
+      trade.grossBaseQuantityInPips,
+      trade.grossQuoteQuantityInPips,
+      trade.priceInPips,
+      buyHash,
+      sellHash
+    );
   }
 }
